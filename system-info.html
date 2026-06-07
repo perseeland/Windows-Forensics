@@ -1,0 +1,332 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — System Information</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        const SI_KEY = 'wf-sysinfo-checks';
+
+        function loadChecks() {
+            const saved = JSON.parse(localStorage.getItem(SI_KEY) || '{}');
+            Object.keys(saved).forEach(id => {
+                const card = document.getElementById(id);
+                if (card && saved[id]) {
+                    card.classList.add('checked');
+                    card.querySelector('.check-btn').textContent = '✅';
+                }
+            });
+        }
+
+        function toggleCheck(id) {
+            const card = document.getElementById(id);
+            const btn  = card.querySelector('.check-btn');
+            card.classList.toggle('checked');
+            btn.textContent = card.classList.contains('checked') ? '✅' : '☐';
+            const saved = JSON.parse(localStorage.getItem(SI_KEY) || '{}');
+            saved[id] = card.classList.contains('checked');
+            localStorage.setItem(SI_KEY, JSON.stringify(saved));
+        }
+
+        function updateVars() {
+            const regPath = document.getElementById('varRegPath').value || 'C:\\Cases\\Analysis\\Registry';
+            const output  = document.getElementById('varOutput').value  || 'C:\\Cases\\Analysis\\Registry\\RR_Output';
+            document.querySelectorAll('.command').forEach(el => {
+                let cmd = el.getAttribute('data-base');
+                cmd = cmd.replaceAll('{REGPATH}', regPath).replaceAll('{OUTPUT}', output);
+                el.textContent = cmd;
+            });
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => { updateVars(); loadChecks(); });
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#computer-name">Computer Name</a></li>
+        <li><a href="#windows-version">Windows Version</a></li>
+        <li><a href="#timezone">Timezone</a></li>
+        <li><a href="#network-info">Network Information</a></li>
+        <li><a href="#shutdown-time">Shutdown Time</a></li>
+        <li><a href="#defender">Defender Settings</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">System Information</h1>
+
+    <!-- ── Variable Bar ───────────────────────────────────────── -->
+    <div class="var-bar">
+        <div class="var-bar-title"><i class="fas fa-sliders"></i> Path Variables</div>
+        <div class="var-grid">
+            <div class="var-field">
+                <label for="varRegPath">Registry Hives Folder</label>
+                <input id="varRegPath" placeholder="C:\Cases\Analysis\Registry" oninput="updateVars()">
+            </div>
+            <div class="var-field">
+                <label for="varOutput">Output Folder</label>
+                <input id="varOutput" placeholder="C:\Cases\Analysis\Registry\RR_Output" oninput="updateVars()">
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ COMPUTER NAME ══════════════════════════════════════ -->
+    <div class="topic-section cyan" id="computer-name">
+        <h3 data-toggle="computer-name-body" onclick="toggleSection('computer-name-body')">
+            <i class="fas fa-computer"></i> Computer Name
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="computer-name-body">
+            <div class="reg-card" id="check-computer-name">
+                <div class="reg-card-header">
+                    <span class="reg-path">HKLM\System\CurrentControlSet\Control\Computername\</span>
+                    <button class="check-btn" onclick="toggleCheck('check-computer-name')">☐</button>
+                </div>
+                <ul class="reg-notes">
+                    <li>Look for the <strong>ComputerName</strong> value to identify the hostname of the system.</li>
+                    <li>Useful for confirming machine identity and correlating with network logs or domain records.</li>
+                </ul>
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="command-box">
+                        <span class="command" data-base="rip.exe -r {REGPATH}\SYSTEM -p compname > {OUTPUT}\compname.txt && type {OUTPUT}\compname.txt"></span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ WINDOWS VERSION ════════════════════════════════════ -->
+    <div class="topic-section green" id="windows-version">
+        <h3 data-toggle="windows-version-body" onclick="toggleSection('windows-version-body')">
+            <i class="fab fa-windows"></i> Windows Version
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="windows-version-body">
+            <div class="reg-card" id="check-windows-version">
+                <div class="reg-card-header">
+                    <span class="reg-path">HKLM\Software\Microsoft\Windows NT\CurrentVersion\</span>
+                    <button class="check-btn" onclick="toggleCheck('check-windows-version')">☐</button>
+                </div>
+                <ul class="reg-notes">
+                    <li>Ensure you navigate to <strong>Windows NT</strong> and not the non-NT Windows key.</li>
+                    <li>Key values: <strong>ProductName</strong>, <strong>CurrentBuild</strong>, <strong>ReleaseId</strong>, and <strong>InstallDate</strong>.</li>
+                    <li>InstallDate is stored as a Unix timestamp — note it as potential evidence of system setup time.</li>
+                </ul>
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="command-box">
+                        <span class="command" data-base="rip.exe -r {REGPATH}\SOFTWARE -p winver > {OUTPUT}\winver.txt && type {OUTPUT}\winver.txt"></span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ TIMEZONE ═══════════════════════════════════════════ -->
+    <div class="topic-section peach" id="timezone">
+        <h3 data-toggle="timezone-body" onclick="toggleSection('timezone-body')">
+            <i class="fas fa-clock"></i> Timezone
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="timezone-body">
+            <div class="reg-card" id="check-timezone">
+                <div class="reg-card-header">
+                    <span class="reg-path">HKLM\System\CurrentControlSet\Control\TimeZoneInformation\</span>
+                    <button class="check-btn" onclick="toggleCheck('check-timezone')">☐</button>
+                </div>
+                <ul class="reg-notes">
+                    <li>Look for <strong>TimeZoneKeyName</strong> to identify the configured timezone.</li>
+                    <li>Critical for accurately interpreting all timestamps — event log and filesystem timestamps must be adjusted relative to this value.</li>
+                </ul>
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="command-box">
+                        <span class="command" data-base="rip.exe -r {REGPATH}\SYSTEM -p timezone > {OUTPUT}\timezone.txt && type {OUTPUT}\timezone.txt"></span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ NETWORK INFORMATION ════════════════════════════════ -->
+    <div class="topic-section pink" id="network-info">
+        <h3 data-toggle="network-info-body" onclick="toggleSection('network-info-body')">
+            <i class="fas fa-network-wired"></i> Network Information
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="network-info-body">
+            <div class="reg-card" id="check-network-info">
+                <div class="reg-card-header">
+                    <span class="reg-path">HKLM\System\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{interface-name}</span>
+                    <button class="check-btn" onclick="toggleCheck('check-network-info')">☐</button>
+                </div>
+                <ul class="reg-notes">
+                    <li>Each subkey under <strong>Interfaces</strong> represents a network adapter identified by a GUID.</li>
+                    <li>Look for <strong>IPAddress</strong>, <strong>DhcpIPAddress</strong>, <strong>DhcpServer</strong>, and <strong>DhcpSubnetMask</strong>.</li>
+                    <li>Can reveal previously assigned IP addresses even if the configuration has since changed.</li>
+                </ul>
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="description"><strong>IP addresses &amp; domains:</strong></div>
+                    <div class="command-box">
+                        <span class="command" data-base="rip.exe -r {REGPATH}\SYSTEM -p ips > {OUTPUT}\ips.txt && type {OUTPUT}\ips.txt"></span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                    <div class="description"><strong>NIC info:</strong></div>
+                    <div class="command-box">
+                        <span class="command" data-base="rip.exe -r {REGPATH}\SYSTEM -p nic2 > {OUTPUT}\nic2.txt && type {OUTPUT}\nic2.txt"></span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                    <div class="description"><strong>Network cards:</strong></div>
+                    <div class="command-box">
+                        <span class="command" data-base="rip.exe -r {REGPATH}\SOFTWARE -p networkcards > {OUTPUT}\networkcards.txt && type {OUTPUT}\networkcards.txt"></span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                    <div class="description"><strong>Network list (previously connected networks):</strong></div>
+                    <div class="command-box">
+                        <span class="command" data-base="rip.exe -r {REGPATH}\SOFTWARE -p networklist > {OUTPUT}\networklist.txt && type {OUTPUT}\networklist.txt"></span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ SHUTDOWN TIME ══════════════════════════════════════ -->
+    <div class="topic-section yellow" id="shutdown-time">
+        <h3 data-toggle="shutdown-time-body" onclick="toggleSection('shutdown-time-body')">
+            <i class="fas fa-power-off"></i> Shutdown Time
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="shutdown-time-body">
+            <div class="reg-card" id="check-shutdown-time">
+                <div class="reg-card-header">
+                    <span class="reg-path">HKLM\System\ControlSet001\Control\Windows\ShutdownTime</span>
+                    <button class="check-btn" onclick="toggleCheck('check-shutdown-time')">☐</button>
+                </div>
+                <ul class="reg-notes">
+                    <li>Stores the last clean shutdown time as a <strong>FILETIME</strong> binary value.</li>
+                    <li>Helps establish a timeline — determines when the suspect last powered off the machine.</li>
+                    <li>Only updated on a clean shutdown, not on crash or power loss.</li>
+                </ul>
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="command-box">
+                        <span class="command" data-base="rip.exe -r {REGPATH}\SYSTEM -p shutdown > {OUTPUT}\shutdown.txt && type {OUTPUT}\shutdown.txt"></span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ DEFENDER SETTINGS ══════════════════════════════════ -->
+    <div class="topic-section mauve" id="defender">
+        <h3 data-toggle="defender-body" onclick="toggleSection('defender-body')">
+            <i class="fas fa-shield-halved"></i> Defender Settings
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="defender-body">
+            <div class="reg-card" id="check-defender">
+                <div class="reg-card-header">
+                    <span class="reg-path">HKLM\Software\Microsoft\Windows Defender\</span>
+                    <button class="check-btn" onclick="toggleCheck('check-defender')">☐</button>
+                </div>
+                <ul class="reg-notes">
+                    <li>Check <strong>DisableAntiSpyware</strong> and <strong>DisableAntiVirus</strong> — a value of <code>1</code> indicates Defender was disabled.</li>
+                    <li>Note the <strong>last write time</strong> of the key — if the value is <code>0</code> (enabled) but the last write time is recent or suspicious, it suggests Defender was re-enabled after previously being turned off, potentially to cover tracks.</li>
+                    <li>Tampered Defender settings can indicate deliberate evasion by a threat actor.</li>
+                    <li>Check <strong>Exclusions</strong> subkeys for any paths or processes whitelisted to bypass scanning.</li>
+                </ul>
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="command-box">
+                        <span class="command" data-base="rip.exe -r {REGPATH}\SOFTWARE -p defender > {OUTPUT}\defender.txt && type {OUTPUT}\defender.txt"></span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

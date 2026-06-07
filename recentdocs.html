@@ -1,0 +1,196 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — RecentDocs</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <!-- ADD NEW SUBPAGE LINKS HERE -->
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#what-can-be-identified">What Can Be Identified</a></li>
+        <li><a href="#structure">Key Structure</a></li>
+        <li><a href="#regripper">RegRipper</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">RecentDocs</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="hive-card">
+                <div class="hive-path">NTUSER.DAT\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs</div>
+            </div>
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-notes">
+                    <ul>
+                        <li>RecentDocs tracks <strong>recently opened files and folders</strong> accessed through Windows Explorer.</li>
+                        <li>Analysis must be performed <strong>per user</strong> — each user's <code>NTUSER.DAT</code> contains their own RecentDocs entries.</li>
+                        <li>Entries persist even after the files are <strong>deleted</strong> — the registry record remains, making it valuable forensic evidence.</li>
+                        <li>The root key holds the <strong>most recently accessed files</strong> across all file types, ordered by the <code>MRUListEx</code> value.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ WHAT CAN BE IDENTIFIED ════════════════════════════ -->
+    <div class="topic-section green" id="what-can-be-identified">
+        <h3 data-toggle="what-can-be-identified-body" onclick="toggleSection('what-can-be-identified-body')">
+            <i class="fas fa-magnifying-glass"></i> What Can Be Identified
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="what-can-be-identified-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>File names</strong> of recently accessed documents, executables, archives, and other files — even if those files have since been deleted.</li>
+                        <li><strong>File types accessed</strong> — each extension has its own subkey (e.g. <code>.pdf</code>, <code>.docx</code>, <code>.exe</code>, <code>.zip</code>), allowing you to quickly filter by type.</li>
+                        <li><strong>Order of access</strong> — the <code>MRUListEx</code> value records the sequence in which files were opened, with the most recent at the top.</li>
+                        <li><strong>Access to removable media and network shares</strong> — file names may include drive letters or UNC paths revealing external storage usage.</li>
+                        <li><strong>Evidence of suspicious file activity</strong> — access to unusual file types (e.g. <code>.exe</code>, <code>.ps1</code>, <code>.bat</code>) or files in temp/appdata locations can indicate malicious behaviour.</li>
+                        <li><strong>Folder browsing</strong> — the <code>Folder</code> subkey tracks recently visited directories separately from files.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="note-box warn"><i class="fas fa-triangle-exclamation"></i><span>RecentDocs records <strong>file names only</strong> — not the full path. Use Shellbags or LNK files alongside RecentDocs for full path reconstruction.</span></div>
+        </div>
+    </div>
+
+    <!-- ══ KEY STRUCTURE ══════════════════════════════════════ -->
+    <div class="topic-section peach" id="structure">
+        <h3 data-toggle="structure-body" onclick="toggleSection('structure-body')">
+            <i class="fas fa-sitemap"></i> Key Structure
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="structure-body">
+            <div class="hive-list">
+                <div class="hive-card">
+                    <div class="hive-path">RecentDocs\ (root)</div>
+                    <ul class="hive-desc">
+                        <li>Contains the <strong>most recently accessed files</strong> across all types.</li>
+                        <li><code>MRUListEx</code> value defines the access order — index 0 is the most recent.</li>
+                    </ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path">RecentDocs\.ext (e.g. .pdf, .exe, .docx)</div>
+                    <ul class="hive-desc">
+                        <li>Each file extension has its own subkey with its own <strong>MRU list</strong>.</li>
+                        <li>Allows filtering by file type — useful for quickly finding all <code>.exe</code> or <code>.zip</code> files opened.</li>
+                    </ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path">RecentDocs\Folder</div>
+                    <ul class="hive-desc">
+                        <li>Tracks recently visited <strong>folders and directories</strong> separately from files.</li>
+                        <li>Can reveal browsing of sensitive directories or newly created folders.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ REGRIPPER ══════════════════════════════════════════ -->
+    <div class="topic-section yellow" id="regripper">
+        <h3 data-toggle="regripper-body" onclick="toggleSection('regripper-body')">
+            <i class="fas fa-terminal"></i> RegRipper
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="regripper-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>recentdocs</strong> plugin parses all RecentDocs subkeys and outputs a list of recently accessed files grouped by extension.</li>
+                        <li>Run against each user's <strong>NTUSER.DAT</strong> — repeat for every user account on the system.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="user-bar">
+                <label for="wf-user-input"><i class="fas fa-user"></i> Username</label>
+                <input type="text" id="wf-user-input" placeholder="e.g. john" autocomplete="off">
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="command-box">
+                        <span class="command" data-tmpl="rip.exe -r C:\Cases\Analysis\Registry\{u}NTUSER.DAT -p recentdocs > C:\Cases\Analysis\Registry\RR_Output\{u}recentdocs.txt &amp;&amp; type C:\Cases\Analysis\Registry\RR_Output\{u}recentdocs.txt">rip.exe -r C:\Cases\Analysis\Registry\NTUSER.DAT -p recentdocs > C:\Cases\Analysis\Registry\RR_Output\recentdocs.txt && type C:\Cases\Analysis\Registry\RR_Output\recentdocs.txt</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

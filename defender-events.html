@@ -1,0 +1,239 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Windows Defender Event Log</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#event-ids">Key Event IDs</a></li>
+        <li><a href="#tools">Tools</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Windows Defender Event Log</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="hive-card">
+                <div class="hive-path">C:\Windows\System32\winevt\Logs\Microsoft-Windows-Windows Defender%4Operational.evtx</div>
+            </div>
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>Windows Defender Operational</strong> event log records all Defender activity — detections, actions taken, configuration changes, and protection status events.</li>
+                        <li>Forensically valuable for understanding whether <strong>malware was detected</strong> during an attack, what action Defender took, and whether <strong>protection was disabled</strong> by an attacker to avoid detection.</li>
+                        <li>A sudden sequence of <strong>protection disabled events</strong> followed by malware activity is a strong indicator of deliberate evasion.</li>
+                        <li>Log entries include the <strong>threat name, file path, detection timestamp</strong>, and the <strong>action taken</strong> — quarantine, remove, or allow.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ KEY EVENT IDs ══════════════════════════════════════ -->
+    <div class="topic-section green" id="event-ids">
+        <h3 data-toggle="event-ids-body" onclick="toggleSection('event-ids-body')">
+            <i class="fas fa-list-ol"></i> Key Event IDs
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="event-ids-body">
+            <div class="hive-list">
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--red);">1116 — Malware Detected</div>
+                    <ul class="hive-desc">
+                        <li>Defender detected a threat — records the <strong>threat name, severity, file path, and detection user</strong>.</li>
+                        <li>First indicator that malicious software was present on the system — cross-reference the file path with $MFT and Amcache.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach);">1117 — Action Taken</div>
+                    <ul class="hive-desc">
+                        <li>Records the <strong>action Defender took</strong> against a detected threat — Quarantine, Remove, Allow, or No Action.</li>
+                        <li>If the action is <strong>Allow</strong> or <strong>No Action</strong>, the malware remained on the system — a critical finding.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--green);">1118 / 1119 — Remediation Failed / Succeeded</div>
+                    <ul class="hive-desc">
+                        <li><strong>1118</strong> — Remediation attempt failed — the threat may still be present on the system.</li>
+                        <li><strong>1119</strong> — Remediation succeeded — the threat was successfully removed or quarantined.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--yellow);">1121 — Attack Surface Reduction Rule Triggered</div>
+                    <ul class="hive-desc">
+                        <li>An <strong>ASR rule</strong> blocked a suspicious behaviour — e.g. Office spawning child processes, credential theft from LSASS, or untrusted executables running.</li>
+                        <li>ASR events can reveal attacker techniques even when the full payload was blocked.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--green);">5000 — Real-Time Protection Enabled</div>
+                    <ul class="hive-desc">
+                        <li>Real-time protection was <strong>turned on</strong>.</li>
+                        <li>When seen immediately after a <strong>5001 (disabled)</strong> event, it suggests the attacker <strong>re-enabled Defender</strong> after completing their activity to avoid leaving obvious traces of tampering.</li>
+                        <li>A 5001 → malware activity → 5000 sequence in the timeline is a strong indicator of deliberate evasion and cleanup.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--red);">5001 — Real-Time Protection Disabled</div>
+                    <ul class="hive-desc">
+                        <li>Real-time protection was <strong>turned off</strong> — a critical event in any investigation.</li>
+                        <li>If this event precedes malware activity, it strongly suggests the attacker <strong>deliberately disabled Defender</strong> before executing their payload.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach);">5004 — Real-Time Protection Configuration Changed</div>
+                    <ul class="hive-desc">
+                        <li>A Defender configuration setting was modified — may indicate <strong>exclusions were added</strong> or scanning was reduced to allow malware to run undetected.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--yellow);">5007 — Configuration Changed</div>
+                    <ul class="hive-desc">
+                        <li>Records a change to Defender settings — includes both the <strong>old and new values</strong>.</li>
+                        <li>Useful for identifying exactly what was changed and when — correlate with the attack timeline.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--blue);">5010 / 5012 — Scanning Disabled</div>
+                    <ul class="hive-desc">
+                        <li><strong>5010</strong> — Scanning for malware was disabled.</li>
+                        <li><strong>5012</strong> — Scanning for viruses was disabled.</li>
+                        <li>Both are evasion indicators — flag these events and check what activity followed immediately after.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ TOOLS ══════════════════════════════════════════════ -->
+    <div class="topic-section peach" id="tools">
+        <h3 data-toggle="tools-body" onclick="toggleSection('tools-body')">
+            <i class="fas fa-terminal"></i> Tools
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="tools-body">
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">1</span> Windows Event Log Explorer</div>
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>Event Log Explorer</strong> is a GUI tool for browsing and analysing <code>.evtx</code> files offline — more powerful than the built-in Windows Event Viewer.</li>
+                        <li>Open the Defender log directly: <strong>File → Open Log File</strong> → navigate to the collected <code>.evtx</code> file.</li>
+                        <li>Use the <strong>Filter</strong> option to narrow down by <strong>Event ID</strong> — e.g. filter for <code>1116, 5001, 5007</code> to focus on detections and protection changes.</li>
+                        <li>Use <strong>Find</strong> (Ctrl+F) to search for specific threat names, file paths, or keywords across all events.</li>
+                        <li>Useful for quick interactive investigation before exporting to CSV for timeline analysis.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">3</span> EvtxECmd</div>
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>EvtxECmd</strong> by Eric Zimmermann parses <code>.evtx</code> log files and exports them as CSV for analysis in <strong>Timeline Explorer</strong>.</li>
+                        <li>Use a <strong>maps file</strong> to translate raw event data into human-readable field names — EvtxECmd ships with maps for common Windows event logs including Defender.</li>
+                        <li>In Timeline Explorer, filter by <strong>EventID</strong> to quickly isolate detection events (1116), protection disabled events (5001), or configuration changes (5007).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> EvtxECmd</div>
+                <div class="command-container">
+                    <div class="description"><strong>Parse Defender event log and export to CSV:</strong></div>
+                    <div class="command-box">
+                        <span class="command">EvtxECmd.exe -f "C:\Cases\Analysis\C\Windows\System32\winevt\Logs\Microsoft-Windows-Windows Defender%4Operational.evtx" --csv "C:\Cases\Analysis\EventLogs" --csvf Defender.csv</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

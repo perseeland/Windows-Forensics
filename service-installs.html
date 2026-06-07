@@ -1,0 +1,197 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Service Installs</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#event-ids">Key Event IDs</a></li>
+        <li><a href="#tools">Tools</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Service Installs — System Event Log</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="hive-card">
+                <div class="hive-path">C:\Windows\System32\winevt\Logs\System.evtx</div>
+            </div>
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>Windows System event log</strong> records service installation, state changes, and failures — making it a key source for identifying malicious service-based persistence.</li>
+                        <li>Event ID <strong>7045</strong> is the most forensically significant — it is written every time a <strong>new service is installed</strong> and records the full service configuration at the time of creation.</li>
+                        <li>Critically, <strong>7045 events are logged even if the registry service key is later deleted</strong> — giving you evidence of a malicious service even after an attacker has cleaned up.</li>
+                        <li>Cross-reference 7045 events with the <strong>Services registry keys</strong> and <strong>$MFT timestamps</strong> to build a complete picture of when a service was installed and what it pointed to.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ KEY EVENT IDs ══════════════════════════════════════ -->
+    <div class="topic-section green" id="event-ids">
+        <h3 data-toggle="event-ids-body" onclick="toggleSection('event-ids-body')">
+            <i class="fas fa-list-ol"></i> Key Event IDs
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="event-ids-body">
+            <div class="hive-list">
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--red);">7045 — New Service Installed</div>
+                    <ul class="hive-desc">
+                        <li>Logged every time a <strong>new service is installed</strong> on the system — the primary event for detecting malicious service installation.</li>
+                        <li>Contains: <strong>Service Name</strong>, <strong>Service File Name</strong> (binary path), <strong>Service Type</strong>, <strong>Service Start Type</strong>, and <strong>Service Account</strong>.</li>
+                        <li>Focus on the <strong>Service File Name</strong> — malicious services often point to paths in Temp, AppData, ProgramData, or use LOLBins.</li>
+                        <li>The event timestamp tells you <strong>exactly when</strong> the service was installed — correlate with other activity in the attack timeline.</li>
+                        <li>This event persists in the log even if the service and its registry key are subsequently deleted.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach);">7036 — Service State Changed</div>
+                    <ul class="hive-desc">
+                        <li>Records when a service <strong>enters a running or stopped state</strong>.</li>
+                        <li>Useful for identifying when a malicious service was <strong>first started</strong> and how frequently it ran — high-frequency restarts may indicate a watchdog mechanism.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--yellow);">7040 — Service Start Type Changed</div>
+                    <ul class="hive-desc">
+                        <li>Records when a service's <strong>start type was modified</strong> — e.g. changed from Manual to Automatic.</li>
+                        <li>An attacker may change a legitimate service's start type to run their payload, or modify a malicious service to ensure it starts automatically.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--blue);">7034 / 7031 — Service Crashed / Terminated Unexpectedly</div>
+                    <ul class="hive-desc">
+                        <li>Records when a service <strong>terminated unexpectedly</strong> or crashed.</li>
+                        <li>Repeated crashes of an unknown service may indicate a malicious service that was killed by Defender or another process, or a poorly written payload.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ TOOLS ══════════════════════════════════════════════ -->
+    <div class="topic-section peach" id="tools">
+        <h3 data-toggle="tools-body" onclick="toggleSection('tools-body')">
+            <i class="fas fa-terminal"></i> Tools
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="tools-body">
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">1</span> Windows Event Log Explorer</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Open the <strong>System.evtx</strong> file and filter by <strong>Event ID 7045</strong> to list all service installations.</li>
+                        <li>Review the <strong>Service File Name</strong> field in each event — this is the binary path that was registered.</li>
+                        <li>Sort by <strong>Date/Time</strong> and cross-reference with the known attack window.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">2</span> EvtxECmd</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Export the System log to CSV and open in <strong>Timeline Explorer</strong> — filter the <strong>EventId</strong> column for <code>7045</code> to isolate all service installs.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> EvtxECmd</div>
+                <div class="command-container">
+                    <div class="description"><strong>Parse System event log and export to CSV:</strong></div>
+                    <div class="command-box">
+                        <span class="command">EvtxECmd.exe -f "C:\Cases\Analysis\C\Windows\System32\winevt\Logs\System.evtx" --csv "C:\Cases\Analysis\EventLogs" --csvf System.csv</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

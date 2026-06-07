@@ -1,0 +1,166 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Disk Analysis Introduction</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#evidence-sources">Evidence Sources</a></li>
+        <li><a href="#disk-analysis-process">Disk Analysis Process</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Disk Analysis Introduction</h1>
+
+    <!-- ══ FUNDAMENTAL SOURCES OF FORENSIC EVIDENCE ══════════ -->
+    <div class="topic-section cyan" id="evidence-sources">
+        <h3 data-toggle="evidence-sources-body" onclick="toggleSection('evidence-sources-body')">
+            <i class="fas fa-magnifying-glass"></i> Fundamental Sources of Forensic Evidence on Windows Systems
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="evidence-sources-body">
+
+            <div class="evidence-grid">
+
+                <div class="evidence-card memory">
+                    <div class="evidence-card-title"><i class="fas fa-microchip"></i> Memory</div>
+                    <p>Volatile data stored in RAM. Captured separately via memory acquisition — not present on disk.</p>
+                </div>
+
+                <div class="evidence-card disk">
+                    <div class="evidence-card-title"><i class="fas fa-hard-drive"></i> Disk</div>
+                    <div class="evidence-sub-grid">
+                        <div class="evidence-sub-card">
+                            <div class="sub-card-title">NT File System (NTFS)</div>
+                        </div>
+                        <div class="evidence-sub-card">
+                            <div class="sub-card-title">Windows Registry</div>
+                        </div>
+                        <div class="evidence-sub-card">
+                            <div class="sub-card-title">Windows Event Logs</div>
+                        </div>
+                        <div class="evidence-sub-card">
+                            <div class="sub-card-title">Other Windows Artifacts</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div><!-- /evidence-sources-body -->
+    </div>
+
+    <!-- ══ DISK ANALYSIS PROCESS ══════════════════════════════ -->
+    <div class="topic-section mauve" id="disk-analysis-process">
+        <h3 data-toggle="disk-analysis-process-body" onclick="toggleSection('disk-analysis-process-body')">
+            <i class="fas fa-list-check"></i> Disk Analysis Process
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="disk-analysis-process-body">
+
+            <div class="process-grid">
+
+                <div class="process-card blue">
+                    <div class="process-card-title"><i class="fas fa-user"></i> System &amp; User Information</div>
+                    <ul>
+                        <li>Registry</li>
+                    </ul>
+                </div>
+
+                <div class="process-card green">
+                    <div class="process-card-title"><i class="fas fa-file"></i> File Analysis</div>
+                    <ul>
+                        <li>NTFS</li>
+                    </ul>
+                </div>
+
+                <div class="process-card peach">
+                    <div class="process-card-title"><i class="fas fa-terminal"></i> Evidence of Execution</div>
+                    <ul>
+                        <li>Background Activity Moderator</li>
+                        <li>ShimCache</li>
+                        <li>Amcache</li>
+                        <li>Prefetch</li>
+                    </ul>
+                </div>
+
+                <div class="process-card pink">
+                    <div class="process-card-title"><i class="fas fa-bolt"></i> Persistence Mechanisms</div>
+                    <ul>
+                        <li>Run Keys</li>
+                        <li>Startup Folder</li>
+                        <li>Scheduled Tasks</li>
+                        <li>Services</li>
+                    </ul>
+                </div>
+
+                <div class="process-card yellow">
+                    <div class="process-card-title"><i class="fas fa-file-lines"></i> Event Log Analysis</div>
+                </div>
+
+            </div>
+
+        </div><!-- /disk-analysis-process-body -->
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

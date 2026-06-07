@@ -1,0 +1,209 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Prefetch</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#what-is-recorded">What Is Recorded</a></li>
+        <li><a href="#what-can-be-identified">What Can Be Identified</a></li>
+        <li><a href="#pecmd">PECmd</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Prefetch Analysis</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="hive-card">
+                <div class="hive-path">C:\Windows\Prefetch\*.pf</div>
+            </div>
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-notes">
+                    <ul>
+                        <li>Windows <strong>Prefetch</strong> is a performance feature that caches data about recently executed programs to speed up future launches. Each executed application gets a <strong>.pf file</strong> named after the executable.</li>
+                        <li>Unlike ShimCache, Prefetch files <strong>directly confirm execution</strong> — a .pf file will only exist if the program was actually run.</li>
+                        <li>Prefetch files are named in the format: <code>EXECUTABLE.EXE-XXXXXXXX.pf</code> — the 8-character hex suffix is a <strong>hash of the full path</strong> from which the file was executed. Two entries for the same executable name but different hashes indicate it was run from <strong>different locations</strong>.</li>
+                        <li>Prefetch is <strong>enabled by default on Windows workstations</strong> but is <strong>disabled by default on Windows Server</strong>.</li>
+                        <li>The maximum number of Prefetch files is <strong>128 on Windows XP/7</strong> and <strong>1024 on Windows 8+</strong>.</li>
+                    </ul>
+                    <div class="note-box info"><i class="fas fa-circle-info"></i><span>Check if Prefetch is enabled: <code>HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters</code> — <strong>EnablePrefetcher</strong> value: <code>0</code>=Disabled, <code>1</code>=App only, <code>2</code>=Boot only, <code>3</code>=Both enabled.</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ WHAT IS RECORDED ══════════════════════════════════ -->
+    <div class="topic-section green" id="what-is-recorded">
+        <h3 data-toggle="what-is-recorded-body" onclick="toggleSection('what-is-recorded-body')">
+            <i class="fas fa-list-check"></i> What Is Recorded
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="what-is-recorded-body">
+            <div class="hive-list">
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--blue);">Executable Name &amp; Path Hash</div>
+                    <ul class="hive-desc">
+                        <li>The name of the executed program and a hash of the directory it was run from.</li>
+                        <li>Multiple .pf files for the same executable name = ran from different locations.</li>
+                    </ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--green);">Last Execution Time &amp; Run Count</div>
+                    <ul class="hive-desc">
+                        <li>On <strong>Windows 8+</strong>, up to the <strong>last 8 execution timestamps</strong> are recorded per file.</li>
+                        <li>Also records the <strong>total run count</strong> — how many times the program has been executed.</li>
+                    </ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach);">Referenced Files &amp; Directories</div>
+                    <ul class="hive-desc">
+                        <li>A list of files and directories the executable <strong>accessed during the first 10 seconds</strong> of launch.</li>
+                        <li>Can reveal DLLs loaded, config files read, and directories accessed — useful for understanding what a malicious tool did on first run.</li>
+                    </ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--pink);">Volume Information</div>
+                    <ul class="hive-desc">
+                        <li>The <strong>volume serial number and volume path</strong> from which the executable was run.</li>
+                        <li>Can confirm execution from a <strong>USB drive or removable media</strong> if the volume serial doesn't match the system drive.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ WHAT CAN BE IDENTIFIED ════════════════════════════ -->
+    <div class="topic-section peach" id="what-can-be-identified">
+        <h3 data-toggle="what-can-be-identified-body" onclick="toggleSection('what-can-be-identified-body')">
+            <i class="fas fa-magnifying-glass"></i> What Can Be Identified
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="what-can-be-identified-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>Confirmed execution</strong> — the existence of a .pf file proves the program was run, regardless of whether the original executable still exists on disk.</li>
+                        <li><strong>Execution timeline</strong> — up to 8 run times per executable on Windows 8+ let you map out when a tool was used throughout an attack.</li>
+                        <li><strong>Execution count</strong> — how many times a program was run; a high count for an unusual tool may indicate persistent or automated use.</li>
+                        <li><strong>Execution from removable media</strong> — the volume serial number reveals if a tool was run directly from a USB drive.</li>
+                        <li><strong>Deleted executables</strong> — the .pf file remains even after the original executable is deleted, proving it was present and executed.</li>
+                        <li><strong>Attacker tool behaviour</strong> — referenced files can reveal what the tool accessed, including staging directories, credential files, or lateral movement targets.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ PECmd ══════════════════════════════════════════════ -->
+    <div class="topic-section yellow" id="pecmd">
+        <h3 data-toggle="pecmd-body" onclick="toggleSection('pecmd-body')">
+            <i class="fas fa-terminal"></i> PECmd
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="pecmd-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>PECmd</strong> (Prefetch Explorer Command line) by Eric Zimmermann parses all .pf files and exports results as a CSV for analysis in <strong>Timeline Explorer</strong>.</li>
+                        <li>Use the <strong>-d flag</strong> to process an entire directory of Prefetch files at once.</li>
+                        <li>In Timeline Explorer, sort by <strong>LastRun</strong> and filter to the attack window to quickly identify tools that were executed.</li>
+                        <li>Look for .pf files with <strong>unusual executable names</strong>, <strong>short run counts</strong> (ran once — may indicate a tool used briefly and deleted), or executions from <strong>non-standard paths</strong>.</li>
+                        <li>PECmd also outputs a <strong>Referenced Files</strong> CSV — this lists every file and directory the executable accessed during its first 10 seconds of execution. This can reveal staging directories, credentials files accessed, lateral movement targets, and DLLs loaded — providing context on <strong>what the program did</strong> when it ran, not just that it ran.</li>
+                        <li>PECmd generates a <strong>Timeline</strong> CSV (via the <code>--csvf</code> naming) that consolidates all execution timestamps across every .pf file into a single chronological view. Open this in <strong>Timeline Explorer</strong> to get a complete picture of all program executions in time order — especially useful for mapping out the sequence of attacker activity across the entire attack window.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> PECmd</div>
+                <div class="command-container">
+                    <div class="description"><strong>Parse all Prefetch files and export to CSV:</strong></div>
+                    <div class="command-box">
+                        <span class="command">PECmd.exe -d "C:\Cases\Analysis\C\Windows\Prefetch" --csv "C:\Cases\Analysis\execution" --csvf Prefetch.csv</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                    <div class="description"><strong>Parse a single Prefetch file:</strong></div>
+                    <div class="command-box">
+                        <span class="command">PECmd.exe -f "C:\Cases\Analysis\C\Windows\Prefetch\MALWARE.EXE-XXXXXXXX.pf"</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

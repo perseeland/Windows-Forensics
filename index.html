@@ -1,0 +1,115 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Data Collection</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Windows Forensics Notes</h1>
+
+    <!-- ══ DATA COLLECTION ═══════════════════════════════════ -->
+    <div class="topic-section cyan" id="data-collection">
+        <h3 data-toggle="data-collection-body" onclick="toggleSection('data-collection-body')">
+            <i class="fas fa-database"></i> Data Collection
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="data-collection-body">
+
+            <!-- Mounting -->
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">1</span> Mount with Arsenal Image Mounter</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Open <strong>Arsenal Image Mounter</strong> and load the <code>.vhd</code> disk image.</li>
+                        <li>In the mount dialog, set the following options:
+                            <ul>
+                                <li>Select <strong>Disk device, write temporary</strong></li>
+                                <li>Check <strong>"Store differencing data in host RAM only (not in a file)"</strong></li>
+                            </ul>
+                        </li>
+                        <li>Click <strong>OK</strong> to mount.</li>
+                        <li>Check <strong>This PC</strong> or <strong>Disk Management</strong> for the assigned drive letter.</li>
+                    </ul>
+                    <div class="note-box info"><i class="fas fa-circle-info"></i><span>Using Write Temporary + RAM keeps the original image forensically clean — no writes touch the source.</span></div>
+                </div>
+            </div>
+
+            <!-- KAPE -->
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">2</span> Triage Collection with KAPE</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Launch <strong>gkape.exe</strong> (the GUI version of KAPE).</li>
+                        <li>Click on <strong>Target options</strong>.</li>
+                        <li>Set <strong>Target source</strong> to the mounted image drive from Arsenal Image Mounter.</li>
+                        <li>Set <strong>Target destination</strong> to <code>C:\Cases</code>.</li>
+                        <li>Select the <strong>KapeTriage</strong> package.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div><!-- /data-collection-body -->
+    </div><!-- /data-collection -->
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

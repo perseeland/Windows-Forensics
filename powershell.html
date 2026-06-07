@@ -1,0 +1,183 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — PowerShell</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#event-ids">Key Event IDs</a></li>
+        <li><a href="#tools">Tools</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">PowerShell — Operational &amp; Classic Logs</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="hive-list">
+                <div class="hive-card">
+                    <div class="hive-path">C:\Windows\System32\winevt\Logs\Microsoft-Windows-PowerShell%4Operational.evtx</div>
+                    <ul class="hive-desc"><li>Modern PowerShell log — home of <strong>Script Block Logging (4104)</strong> and <strong>Module Logging (4103)</strong>. The richest source of what was actually executed.</li></ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path">C:\Windows\System32\winevt\Logs\Windows PowerShell.evtx</div>
+                    <ul class="hive-desc"><li>Classic/legacy log — <strong>engine lifecycle (400/403)</strong> and <strong>pipeline details (800)</strong>. Always present, even when modern logging is off.</li></ul>
+                </div>
+            </div>
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-notes">
+                    <ul>
+                        <li>PowerShell is the <strong>attacker's tool of choice</strong> — used for downloads (<code>IEX (New-Object Net.WebClient).DownloadString</code>), in-memory execution, recon, and post-exploitation frameworks (Empire, Cobalt Strike, PowerSploit).</li>
+                        <li><strong>Script Block Logging (4104)</strong> is the single most valuable artefact — it records the <strong>full script content after deobfuscation</strong>, so even Base64/obfuscated payloads appear in cleartext.</li>
+                        <li>Crucially, even when logging is <strong>not</strong> fully enabled, PowerShell <strong>auto-logs script blocks it deems suspicious</strong> as 4104 events at <strong>Warning (level 3)</strong> — so you often have evidence anyway.</li>
+                        <li>Cross-reference PowerShell events with <strong>4688 (process creation)</strong> and network/file artefacts to reconstruct the full command sequence.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ KEY EVENT IDs ══════════════════════════════════════ -->
+    <div class="topic-section green" id="event-ids">
+        <h3 data-toggle="event-ids-body" onclick="toggleSection('event-ids-body')">
+            <i class="fas fa-list-ol"></i> Key Event IDs
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="event-ids-body">
+            <div class="hive-list">
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--red);">4104 — Script Block Logging <span style="color: var(--text-muted); font-weight: normal;">(Operational)</span></div>
+                    <ul class="hive-desc">
+                        <li><strong>The most important PowerShell event.</strong> Records the content of each script block as it is compiled and executed.</li>
+                        <li>PowerShell logs the block <strong>after it has been deobfuscated/decoded</strong> — so <code>-EncodedCommand</code> Base64, string concatenation, and other obfuscation are captured in <strong>cleartext</strong>.</li>
+                        <li>Filter on <strong>Level = Warning (3)</strong> first — these are blocks PowerShell flagged as suspicious and are logged even without full logging configured.</li>
+                        <li>Long scripts are split across multiple 4104 events — reassemble using <code>MessageNumber</code> of <code>MessageTotal</code> and the shared <code>ScriptBlockId</code>.</li>
+                    </ul>
+                    <div class="note-box info"><i class="fas fa-circle-info"></i><span><strong>Enabled via:</strong> <code>HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging\EnableScriptBlockLogging = 1</code>. Worth checking — if it was recently disabled, that itself is an IOC.</span></div>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach);">4103 — Module / Pipeline Logging <span style="color: var(--text-muted); font-weight: normal;">(Operational)</span></div>
+                    <ul class="hive-desc">
+                        <li>Records <strong>pipeline execution details</strong> — the commands invoked and their <strong>bound parameter values</strong>, plus the user and host.</li>
+                        <li>Complements 4104: where script block logging shows the <em>code</em>, module logging shows the <em>command + arguments</em> that ran through the pipeline.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--blue);">400 / 403 — Engine Lifecycle <span style="color: var(--text-muted); font-weight: normal;">(Classic)</span></div>
+                    <ul class="hive-desc">
+                        <li><strong>400</strong> — a PowerShell engine started (a session began). <strong>403</strong> — the engine stopped.</li>
+                        <li>The 400 event records the <strong>HostApplication</strong> (full launching command line) and the <strong>EngineVersion</strong>.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--green);">40961 / 40962 — Console Host Startup <span style="color: var(--text-muted); font-weight: normal;">(Operational)</span></div>
+                    <ul class="hive-desc">
+                        <li><strong>40961</strong> — the PowerShell console host is starting; <strong>40962</strong> — the console is ready for input.</li>
+                        <li>Useful as a lightweight marker of <strong>when PowerShell was launched</strong> and by which user, even before any commands run.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ TOOLS ══════════════════════════════════════════════ -->
+    <div class="topic-section peach" id="tools">
+        <h3 data-toggle="tools-body" onclick="toggleSection('tools-body')">
+            <i class="fas fa-terminal"></i> Tools
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="tools-body">
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">1</span> Windows Event Log Explorer</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Open <strong>Microsoft-Windows-PowerShell%4Operational.evtx</strong> and filter by <strong>Event ID 4104</strong> — then narrow to <strong>Level = Warning</strong> for the auto-flagged suspicious blocks.</li>
+                        <li>Open <strong>Windows PowerShell.evtx</strong> and filter <strong>400</strong> — check the <strong>EngineVersion</strong> field for downgrade attempts.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

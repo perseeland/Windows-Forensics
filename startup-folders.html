@@ -1,0 +1,227 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Startup Folders</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#locations">Folder Locations</a></li>
+        <li><a href="#registry">Registry Keys</a></li>
+        <li><a href="#investigation">Investigation</a></li>
+        <li><a href="#regripper">RegRipper</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Startup Folders</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>Windows <strong>Startup Folders</strong> are special directories — any file placed inside them is automatically executed when a user logs in.</li>
+                        <li>There are two variants: a <strong>per-user</strong> startup folder (only runs for that specific user) and an <strong>all-users</strong> startup folder (runs for every user who logs in).</li>
+                        <li>Files that execute from startup folders include <code>.exe</code>, <code>.bat</code>, <code>.vbs</code>, <code>.ps1</code>, <code>.cmd</code>, and <strong>.lnk shortcuts</strong> pointing to other executables.</li>
+                        <li>Unlike Run Keys, startup folder persistence is <strong>file-system based</strong> — the malicious file must be present in the folder for it to execute.</li>
+                        <li>Attackers commonly drop <strong>.lnk shortcut files</strong> into the startup folder pointing to malware elsewhere on the system, making detection slightly harder.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ FOLDER LOCATIONS ══════════════════════════════════ -->
+    <div class="topic-section green" id="locations">
+        <h3 data-toggle="locations-body" onclick="toggleSection('locations-body')">
+            <i class="fas fa-folder-open"></i> Folder Locations
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="locations-body">
+            <div class="hive-list">
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach); margin-bottom: 6px;">Per-User Startup</div>
+                    <div class="hive-path">C:\Users\&lt;username&gt;\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup</div>
+                    <ul class="hive-desc" style="margin-top: 8px;">
+                        <li>Only executes for the <strong>specific user</strong> when they log in.</li>
+                        <li>Does <strong>not require admin privileges</strong> to write — a common attacker target.</li>
+                        <li>Check this folder for every user profile found on the system.</li>
+                    </ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach); margin-bottom: 6px;">All Users Startup</div>
+                    <div class="hive-path">C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp</div>
+                    <ul class="hive-desc" style="margin-top: 8px;">
+                        <li>Executes for <strong>every user</strong> who logs into the system.</li>
+                        <li>Requires <strong>admin privileges</strong> to write — indicates a higher-privilege attacker or escalation before placing persistence.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ REGISTRY KEYS ══════════════════════════════════════ -->
+    <div class="topic-section peach" id="registry">
+        <h3 data-toggle="registry-body" onclick="toggleSection('registry-body')">
+            <i class="fas fa-key"></i> Registry Keys
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="registry-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>The actual paths of the startup folders are configured in registry keys — attackers can <strong>redirect these keys to a different folder</strong> as a stealthier persistence technique.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="hive-list">
+                <div class="hive-card">
+                    <div class="hive-path">HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders</div>
+                    <div class="hive-path" style="margin-top: 6px;">HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders</div>
+                    <ul class="hive-desc" style="margin-top: 8px;">
+                        <li>Controls the <strong>per-user</strong> startup folder path — found in NTUSER.DAT.</li>
+                        <li>Look for the <code>Startup</code> value — if it points to an unusual directory, the startup folder has been <strong>hijacked</strong>.</li>
+                    </ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path">HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders</div>
+                    <div class="hive-path" style="margin-top: 6px;">HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders</div>
+                    <ul class="hive-desc" style="margin-top: 8px;">
+                        <li>Controls the <strong>all-users</strong> startup folder path — found in the SOFTWARE hive.</li>
+                        <li>Look for the <code>Common Startup</code> value — a redirect here affects all users on the system.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="note-box warn" style="margin-top: 10px;"><i class="fas fa-triangle-exclamation"></i><span>If the <strong>Startup</strong> or <strong>Common Startup</strong> registry values point to a non-standard path, the attacker may have <strong>redirected the startup folder</strong> itself — investigate the new path for malicious files.</span></div>
+        </div>
+    </div>
+
+    <!-- ══ INVESTIGATION ══════════════════════════════════════ -->
+    <div class="topic-section yellow" id="investigation">
+        <h3 data-toggle="investigation-body" onclick="toggleSection('investigation-body')">
+            <i class="fas fa-magnifying-glass"></i> Investigation
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="investigation-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>Browse the startup folder paths directly in the mounted image — check for any <strong>unexpected files or shortcuts</strong> present.</li>
+                        <li>For <strong>.lnk shortcut files</strong>, examine the shortcut target path — it may point to malware in a completely different location on disk.</li>
+                        <li>Use <strong>$MFT</strong> analysis to check the <strong>created and modified timestamps</strong> of files in the startup folders — cross-reference with the attack timeframe.</li>
+                        <li>Even if the startup file has been <strong>deleted</strong>, the $MFT and USN Journal may still record that it existed and was removed.</li>
+                        <li>In <strong>Timeline Explorer</strong>, open the <strong>$MFT CSV</strong> output from MFTECmd and filter the <strong>ParentPath</strong> column for <code>\Startup</code> — this will surface any files (including deleted ones) that existed in either the per-user or all-users startup folders, regardless of whether they are still present on disk.</li>
+                        <li>In <strong>Registry Explorer</strong>, use the <strong>Bookmarks</strong> tab to navigate directly to the Shell Folders keys and verify the startup folder paths are pointing to expected locations.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ REGRIPPER ══════════════════════════════════════════ -->
+    <div class="topic-section mauve" id="regripper">
+        <h3 data-toggle="regripper-body" onclick="toggleSection('regripper-body')">
+            <i class="fas fa-terminal"></i> RegRipper
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="regripper-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>shellfolders</strong> plugin outputs the configured startup folder paths from both the SOFTWARE and NTUSER.DAT hives — useful for detecting redirected startup folders.</li>
+                        <li>Run against both hives to get a complete picture.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="description"><strong>All-users startup folder path (HKLM):</strong></div>
+                    <div class="command-box">
+                        <span class="command">rip.exe -r C:\Cases\Analysis\Registry\SOFTWARE -p shellfolders > C:\Cases\Analysis\Registry\RR_Output\shellfolders_hklm.txt && type C:\Cases\Analysis\Registry\RR_Output\shellfolders_hklm.txt</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                    <div class="description"><strong>Per-user startup folder path (HKCU):</strong></div>
+                    <div class="command-box">
+                        <span class="command">rip.exe -r C:\Cases\Analysis\Registry\NTUSER.DAT -p shellfolders > C:\Cases\Analysis\Registry\RR_Output\shellfolders_hkcu.txt && type C:\Cases\Analysis\Registry\RR_Output\shellfolders_hkcu.txt</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

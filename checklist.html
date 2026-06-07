@@ -1,0 +1,700 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Investigation Checklist</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        const STORAGE_KEY = 'wf-checklist';
+
+        function loadChecks() {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            document.querySelectorAll('.cl-item').forEach(item => {
+                const id = item.getAttribute('data-id');
+                if (saved[id]) setChecked(item, true, false);
+            });
+            updateProgress();
+        }
+
+        function saveChecks() {
+            const state = {};
+            document.querySelectorAll('.cl-item').forEach(item => {
+                state[item.getAttribute('data-id')] = item.classList.contains('cl-checked');
+            });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function toggleItem(item) {
+            const checked = item.classList.contains('cl-checked');
+            setChecked(item, !checked, true);
+            checkSectionComplete(item);
+        }
+
+        function setChecked(item, checked, save) {
+            const box = item.querySelector('.cl-box');
+            if (checked) {
+                item.classList.add('cl-checked');
+                box.textContent = '✅';
+            } else {
+                item.classList.remove('cl-checked');
+                box.textContent = '☐';
+            }
+            updateProgress();
+            if (save) saveChecks();
+        }
+
+        function clearAll() {
+            document.querySelectorAll('.cl-item').forEach(item => setChecked(item, false, false));
+            localStorage.removeItem(STORAGE_KEY);
+            updateProgress();
+        }
+
+        function updateProgress() {
+            const total   = document.querySelectorAll('.cl-item').length;
+            const checked = document.querySelectorAll('.cl-item.cl-checked').length;
+            const pct     = total ? Math.round((checked / total) * 100) : 0;
+            document.getElementById('prog-text').textContent = `${checked} / ${total} completed`;
+            document.getElementById('prog-bar').style.width  = pct + '%';
+            document.getElementById('prog-pct').textContent  = pct + '%';
+        }
+
+        function checkSectionComplete(item) {
+            const section = item.closest('.cl-section');
+            const items   = section.querySelectorAll('.cl-item');
+            const allDone = [...items].every(i => i.classList.contains('cl-checked'));
+            const body    = section.querySelector('.cl-section-body');
+            const icon    = section.querySelector('.cl-toggle-icon');
+            if (allDone) {
+                body.classList.add('collapsed');
+                icon.textContent = '▶';
+            }
+        }
+
+        function toggleSection(titleEl) {
+            const body = titleEl.nextElementSibling;
+            const icon = titleEl.querySelector('.cl-toggle-icon');
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        document.addEventListener('DOMContentLoaded', loadChecks);
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Investigation Checklist</h1>
+
+    <!-- Progress Bar -->
+    <div class="prog-bar-wrap">
+        <div class="prog-bar-track">
+            <div class="prog-bar-fill" id="prog-bar" style="width:0%"></div>
+        </div>
+        <div class="prog-meta">
+            <span id="prog-text">0 / 0 completed</span>
+            <span id="prog-pct">0%</span>
+        </div>
+    </div>
+
+    <div class="cl-toolbar">
+        <button class="cl-clear-btn" onclick="clearAll()"><i class="fas fa-rotate-left"></i> Clear All</button>
+    </div>
+
+    <!-- ══ DATA COLLECTION ════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title cyan" onclick="toggleSection(this)"><i class="fas fa-database"></i> Data Collection <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="dc-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Mount disk image with Arsenal Image Mounter</span>
+            </div>
+            <div class="cl-item" data-id="dc-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Run KAPE triage collection (KapeTriage package)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ REGISTRY HIVE PARSING ══════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title green" onclick="toggleSection(this)"><i class="fas fa-folder-open"></i> Registry Hive Parsing <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="rh-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Load system hives into Registry Explorer</span>
+            </div>
+            <div class="cl-item" data-id="rh-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Run RegRipper automation script against all hives</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ GATHERING SYSTEM INFORMATION ══════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title peach" onclick="toggleSection(this)"><i class="fas fa-computer"></i> Gathering System Information <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="si-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Computer Name</span>
+            </div>
+            <div class="cl-item" data-id="si-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Windows Version</span>
+            </div>
+            <div class="cl-item" data-id="si-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Timezone</span>
+            </div>
+            <div class="cl-item" data-id="si-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Network Information</span>
+            </div>
+            <div class="cl-item" data-id="si-5" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Shutdown Time</span>
+            </div>
+            <div class="cl-item" data-id="si-6" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Defender Settings</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ USERS ═════════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title pink" onclick="toggleSection(this)"><i class="fas fa-users"></i> Users <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="us-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review Alias &amp; Users bookmarks — export CSV to Timeline Explorer</span>
+            </div>
+            <div class="cl-item" data-id="us-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review account timestamps (created, last login)</span>
+            </div>
+            <div class="cl-item" data-id="us-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Run ProfileList plugin to identify profiles on the system</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ USERASSIST ════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title yellow" onclick="toggleSection(this)"><i class="fas fa-magnifying-glass"></i> UserAssist <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="ua-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Identify all user NTUSER.DAT hives to analyse</span>
+            </div>
+            <div class="cl-item" data-id="ua-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review GUID {CEBFF5CD} — applications, files &amp; objects accessed</span>
+            </div>
+            <div class="cl-item" data-id="ua-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review GUID {F4E57C4B} — shortcut links used to start programs</span>
+            </div>
+            <div class="cl-item" data-id="ua-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Run userassist RegRipper plugin per user hive</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ RECENTDOCS ════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title mauve" onclick="toggleSection(this)"><i class="fas fa-clock-rotate-left"></i> RecentDocs <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="rd-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review root key — most recently accessed files across all types</span>
+            </div>
+            <div class="cl-item" data-id="rd-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check extension subkeys for suspicious file types (.exe, .ps1, .zip)</span>
+            </div>
+            <div class="cl-item" data-id="rd-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check Folder subkey for recently visited directories</span>
+            </div>
+            <div class="cl-item" data-id="rd-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Run recentdocs RegRipper plugin per user hive</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ SHELLBAGS ══════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title cyan" onclick="toggleSection(this)"><i class="fas fa-bag-shopping"></i> ShellBags <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="sb-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Run shellbags plugin against USRCLASS.DAT (primary)</span>
+            </div>
+            <div class="cl-item" data-id="sb-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Run shellbags plugin against NTUSER.DAT (secondary)</span>
+            </div>
+            <div class="cl-item" data-id="sb-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Load both hives in ShellBag Explorer and export CSV to Timeline Explorer</span>
+            </div>
+            <div class="cl-item" data-id="sb-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Sort by Last Write Time and review USB, network &amp; deleted folder paths</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ MFT ═══════════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title green" onclick="toggleSection(this)"><i class="fas fa-table"></i> MFT <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="mft-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Parse $MFT with MFTECmd and export to CSV</span>
+            </div>
+            <div class="cl-item" data-id="mft-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Open CSV in Timeline Explorer and filter by attack timeframe</span>
+            </div>
+            <div class="cl-item" data-id="mft-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter InUse = False in Timeline Explorer to identify deleted file entries</span>
+            </div>
+            <div class="cl-item" data-id="mft-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter SI&lt;FN = True in Timeline Explorer to flag timestomping</span>
+            </div>
+            <div class="cl-item" data-id="mft-5" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check timestamps rounded to exact seconds — indicator of manual timestomping</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ USN JOURNAL ═══════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title blue" onclick="toggleSection(this)"><i class="fas fa-file-lines"></i> USN Journal <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="usn-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Parse $J stream with MFTECmd and export to CSV</span>
+            </div>
+            <div class="cl-item" data-id="usn-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter FILE_DELETE entries in Timeline Explorer during attack window</span>
+            </div>
+            <div class="cl-item" data-id="usn-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Look for Rename → Delete pattern indicating Recycle Bin then permanent deletion</span>
+            </div>
+            <div class="cl-item" data-id="usn-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Correlate USN entries with $MFT file reference numbers</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ BAM ════════════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title pink" onclick="toggleSection(this)"><i class="fas fa-terminal"></i> BAM <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="bam-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Run BAM RegRipper plugin against SYSTEM hive</span>
+            </div>
+            <div class="cl-item" data-id="bam-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review per-user SID entries for executed programs</span>
+            </div>
+            <div class="cl-item" data-id="bam-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check for LOLBins and tools run from suspicious locations</span>
+            </div>
+            <div class="cl-item" data-id="bam-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Cross-reference execution timestamps with attack timeframe</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ SHIMCACHE ══════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title green" onclick="toggleSection(this)"><i class="fas fa-database"></i> ShimCache <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="shim-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Parse ShimCache with AppCompatCacheParser and export to CSV</span>
+            </div>
+            <div class="cl-item" data-id="shim-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review entries for executables in suspicious locations</span>
+            </div>
+            <div class="cl-item" data-id="shim-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Note: Win10 entries do not confirm execution — corroborate with BAM / Amcache</span>
+            </div>
+            <div class="cl-item" data-id="shim-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check for deleted tools still present in cache</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ AMCACHE ════════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title yellow" onclick="toggleSection(this)"><i class="fas fa-database"></i> Amcache <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="amc-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Parse Amcache.hve with AmcacheParser and export to CSV</span>
+            </div>
+            <div class="cl-item" data-id="amc-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review UnassociatedFileEntries for standalone executed files</span>
+            </div>
+            <div class="cl-item" data-id="amc-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Submit SHA1 hashes of suspicious files to VirusTotal</span>
+            </div>
+            <div class="cl-item" data-id="amc-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check first execution timestamps against attack timeframe</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ PREFETCH ═══════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title mauve" onclick="toggleSection(this)"><i class="fas fa-bolt"></i> Prefetch <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="pf-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Confirm Prefetch is enabled on the system</span>
+            </div>
+            <div class="cl-item" data-id="pf-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Parse all .pf files with PECmd and export to CSV</span>
+            </div>
+            <div class="cl-item" data-id="pf-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review LastRun timestamps and execution counts during attack window</span>
+            </div>
+            <div class="cl-item" data-id="pf-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check for same executable run from multiple paths (different hashes)</span>
+            </div>
+            <div class="cl-item" data-id="pf-5" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check volume serial number — execution from USB or removable media</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ RUN KEYS ═══════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title cyan" onclick="toggleSection(this)"><i class="fas fa-bolt"></i> Run Keys <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="rk-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review HKLM Run &amp; RunOnce keys (SOFTWARE hive)</span>
+            </div>
+            <div class="cl-item" data-id="rk-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review HKCU Run &amp; RunOnce keys for each user (NTUSER.DAT)</span>
+            </div>
+            <div class="cl-item" data-id="rk-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check WOW6432Node Run key for 32-bit persistence entries</span>
+            </div>
+            <div class="cl-item" data-id="rk-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Flag entries pointing to Temp, AppData, Downloads or using LOLBins</span>
+            </div>
+            <div class="cl-item" data-id="rk-5" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check last write time of Run keys to place persistence in timeline</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ STARTUP FOLDERS ════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title peach" onclick="toggleSection(this)"><i class="fas fa-folder-open"></i> Startup Folders <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="sf-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check per-user startup folder for each user profile</span>
+            </div>
+            <div class="cl-item" data-id="sf-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check all-users startup folder (ProgramData)</span>
+            </div>
+            <div class="cl-item" data-id="sf-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Inspect any .lnk shortcut files for their target path</span>
+            </div>
+            <div class="cl-item" data-id="sf-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Verify Shell Folders registry keys point to expected paths</span>
+            </div>
+            <div class="cl-item" data-id="sf-5" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check $MFT timestamps of startup folder files against attack timeframe</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ WINDOWS SERVICES ═══════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title green" onclick="toggleSection(this)"><i class="fas fa-gears"></i> Windows Services <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="svc-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Run services RegRipper plugin against SYSTEM hive</span>
+            </div>
+            <div class="cl-item" data-id="svc-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Review services with Start=2 (Automatic) created during attack window</span>
+            </div>
+            <div class="cl-item" data-id="svc-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check ImagePath for non-standard locations or LOLBin usage</span>
+            </div>
+            <div class="cl-item" data-id="svc-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Flag services running as LocalSystem with unknown or suspicious names</span>
+            </div>
+            <div class="cl-item" data-id="svc-5" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check last write time of service registry keys against attack timeframe</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ SCHEDULED TASKS ════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title yellow" onclick="toggleSection(this)"><i class="fas fa-calendar-check"></i> Scheduled Tasks <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="st-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Run taskcache RegRipper plugin against SOFTWARE hive</span>
+            </div>
+            <div class="cl-item" data-id="st-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Browse C:\Windows\System32\Tasks\ for suspicious XML files</span>
+            </div>
+            <div class="cl-item" data-id="st-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check $MFT created timestamps of XML files against attack window</span>
+            </div>
+            <div class="cl-item" data-id="st-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Inspect &lt;Actions&gt; elements for LOLBin usage or suspicious paths</span>
+            </div>
+            <div class="cl-item" data-id="st-5" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check TaskCache for entries with no matching XML file (deleted tasks)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ WINDOWS DEFENDER EVENTS ═══════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title blue" onclick="toggleSection(this)"><i class="fas fa-shield-halved"></i> Windows Defender Events <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="def-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Parse Defender event log with EvtxECmd and export to CSV</span>
+            </div>
+            <div class="cl-item" data-id="def-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter EventID 1116 — malware detections (threat name, path, timestamp)</span>
+            </div>
+            <div class="cl-item" data-id="def-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter EventID 5000 / 5001 — protection enabled/disabled (look for disable → re-enable pattern)</span>
+            </div>
+            <div class="cl-item" data-id="def-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter EventID 5007 — configuration changed (check old vs new values)</span>
+            </div>
+            <div class="cl-item" data-id="def-5" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check if disable events preceded malware activity in the timeline</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ SERVICE INSTALLS ═══════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title peach" onclick="toggleSection(this)"><i class="fas fa-gears"></i> Service Installs <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="si-ev-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Parse System.evtx with EvtxECmd and export to CSV</span>
+            </div>
+            <div class="cl-item" data-id="si-ev-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter EventID 7045 — review all new service installs</span>
+            </div>
+            <div class="cl-item" data-id="si-ev-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Check Service File Name for suspicious paths or LOLBin usage</span>
+            </div>
+            <div class="cl-item" data-id="si-ev-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Cross-reference 7045 timestamps with attack timeline</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ AUTHENTICATION EVENTS ══════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title mauve" onclick="toggleSection(this)"><i class="fas fa-key"></i> Authentication Events <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="auth-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Parse Security.evtx with EvtxECmd and export to CSV</span>
+            </div>
+            <div class="cl-item" data-id="auth-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter 4624 — successful logins (focus on Type 10 RDP and Type 3 Network)</span>
+            </div>
+            <div class="cl-item" data-id="auth-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter 4625 — failed logins (brute-force pattern: many failures then success)</span>
+            </div>
+            <div class="cl-item" data-id="auth-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter 4720 / 4732 — new account created or added to Administrators</span>
+            </div>
+            <div class="cl-item" data-id="auth-5" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter 4648 — explicit credential use (RunAs / lateral movement)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ POWERSHELL ════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title blue" onclick="toggleSection(this)"><i class="fas fa-terminal"></i> PowerShell <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="ps-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Open Microsoft-Windows-PowerShell%4Operational.evtx in Event Log Explorer</span>
+            </div>
+            <div class="cl-item" data-id="ps-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter 4104 — script block logging; narrow to Level = Warning for auto-flagged suspicious blocks</span>
+            </div>
+            <div class="cl-item" data-id="ps-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Reassemble multi-part scripts via shared ScriptBlockId (MessageNumber of MessageTotal)</span>
+            </div>
+            <div class="cl-item" data-id="ps-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter 4103 — module/pipeline logging (commands and bound parameter values)</span>
+            </div>
+            <div class="cl-item" data-id="ps-5" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Open Windows PowerShell.evtx and filter 400 — check HostApplication and EngineVersion</span>
+            </div>
+            <div class="cl-item" data-id="ps-6" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Cross-reference PowerShell activity with the attack timeframe</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ SYSMON ════════════════════════════════════════════ -->
+    <div class="cl-section">
+        <div class="cl-section-title green" onclick="toggleSection(this)"><i class="fas fa-eye"></i> Sysmon <span class="cl-toggle-icon">▼</span></div>
+        <div class="cl-section-body">
+            <div class="cl-item" data-id="sym-1" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Open Microsoft-Windows-Sysmon%4Operational.evtx in Event Log Explorer</span>
+            </div>
+            <div class="cl-item" data-id="sym-2" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter EventID 1 — process creation (command line, parent process, hashes)</span>
+            </div>
+            <div class="cl-item" data-id="sym-3" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Grab ProcessGuid from a suspicious process and pivot to its 3 / 11 / 22 events</span>
+            </div>
+            <div class="cl-item" data-id="sym-4" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter EventID 3 — network connections (suspicious destination IPs / beaconing)</span>
+            </div>
+            <div class="cl-item" data-id="sym-5" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter EventID 11 — file creates (dropped payloads in Temp / AppData / ProgramData)</span>
+            </div>
+            <div class="cl-item" data-id="sym-6" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter EventID 12 / 13 — registry key/value changes (Run keys and other persistence)</span>
+            </div>
+            <div class="cl-item" data-id="sym-7" onclick="toggleItem(this)">
+                <span class="cl-box">☐</span>
+                <span class="cl-label">Filter EventID 22 — DNS queries (C2 domains / DGA)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD NEW SECTIONS BELOW THIS COMMENT -->
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

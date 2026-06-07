@@ -1,0 +1,192 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Sysmon</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#event-ids">Key Event IDs</a></li>
+        <li><a href="#tools">Tools</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Sysmon — Operational Log</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="hive-card">
+                <div class="hive-path">C:\Windows\System32\winevt\Logs\Microsoft-Windows-Sysmon%4Operational.evtx</div>
+            </div>
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>Sysmon (System Monitor)</strong> is a Sysinternals tool that must be <strong>installed beforehand</strong> — when present it provides far richer, more reliable telemetry than native Windows logging.</li>
+                        <li>It records <strong>process creation with hashes, network connections, file writes, registry changes, and DNS queries</strong> — the core building blocks of an attack timeline.</li>
+                        <li>What gets logged is <strong>config-driven</strong> (the XML config, e.g. SwiftOnSecurity / Olaf Hartong) — absence of an event may just mean it wasn't configured, not that it didn't happen.</li>
+                        <li>Every event carries a <strong>ProcessGuid</strong> that uniquely identifies a process across reboots — use it to pivot between a process's creation (1) and everything it did afterwards (3, 11, 22).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ KEY EVENT IDs ══════════════════════════════════════ -->
+    <div class="topic-section green" id="event-ids">
+        <h3 data-toggle="event-ids-body" onclick="toggleSection('event-ids-body')">
+            <i class="fas fa-list-ol"></i> Key Event IDs
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="event-ids-body">
+            <div class="hive-list">
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--red);">1 — Process Creation</div>
+                    <ul class="hive-desc">
+                        <li><strong>The most valuable Sysmon event.</strong> Logs every process start with the <strong>full command line</strong>, <strong>Image</strong> path, <strong>working directory</strong>, and the executing <strong>user</strong>.</li>
+                        <li>Records the <strong>ParentImage</strong> and <strong>ParentCommandLine</strong> — letting you spot suspicious chains like <code>winword.exe → powershell.exe → cmd.exe</code>.</li>
+                        <li>Includes file <strong>Hashes</strong> (MD5/SHA256/IMPHASH) for the image — pivot straight to VirusTotal or a known-bad list.</li>
+                    </ul>
+                    <div class="note-box info"><i class="fas fa-circle-info"></i><span>The <code>ProcessGuid</code> field here is the key pivot — copy it and filter the log on that value to surface every network connection, file write, and DNS query that this same process generated.</span></div>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--blue);">3 — Network Connection</div>
+                    <ul class="hive-desc">
+                        <li>Logs TCP/UDP connections, recording <strong>SourceIp</strong>, <strong>DestinationIp</strong>, <strong>DestinationPort</strong>, <strong>DestinationHostname</strong>, and the originating <strong>Image</strong>.</li>
+                        <li>Key for spotting <strong>C2 / beaconing</strong> — regular connections to an unusual external IP, or a connection made by a process that has no business talking to the network (e.g. <code>powershell.exe</code>, <code>rundll32.exe</code>).</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--green);">11 — File Create</div>
+                    <ul class="hive-desc">
+                        <li>Logs when a file is <strong>created or overwritten</strong> — records the creating <strong>Image</strong>, the <strong>TargetFilename</strong>, and the <strong>CreationUtcTime</strong>.</li>
+                        <li>Catches <strong>dropped payloads</strong> (in Temp/AppData/ProgramData), tool transfers, and ransomware note/encrypted-file creation.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach);">12 — Registry Object Create / Delete</div>
+                    <ul class="hive-desc">
+                        <li>Logs registry <strong>key creation and deletion</strong> — the <strong>EventType</strong> field shows <code>CreateKey</code> or <code>DeleteKey</code>, with the <strong>TargetObject</strong> (key path) and originating <strong>Image</strong>.</li>
+                        <li>Useful for spotting new persistence keys being created, or an attacker deleting keys to clean up.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--yellow);">13 — Registry Value Set</div>
+                    <ul class="hive-desc">
+                        <li>Logs registry <strong>value modifications</strong> — records the <strong>TargetObject</strong> (full value path) and the <strong>Details</strong> (the data written).</li>
+                        <li>The go-to event for <strong>registry persistence</strong> — watch Run/RunOnce keys, service ImagePaths, and other autostart locations being written.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--pink);">22 — DNS Query</div>
+                    <ul class="hive-desc">
+                        <li>Logs DNS lookups, recording the <strong>QueryName</strong>, the <strong>QueryResults</strong> (resolved addresses), and the <strong>Image</strong> that made the request.</li>
+                        <li>Surfaces <strong>C2 domains, DGA traffic, and exfil endpoints</strong> — and ties the resolved domain directly to the process responsible.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ TOOLS ══════════════════════════════════════════════ -->
+    <div class="topic-section peach" id="tools">
+        <h3 data-toggle="tools-body" onclick="toggleSection('tools-body')">
+            <i class="fas fa-terminal"></i> Tools
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="tools-body">
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">1</span> Windows Event Log Explorer</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Open <strong>Microsoft-Windows-Sysmon%4Operational.evtx</strong> and filter by <strong>Event ID</strong> — start with <strong>1</strong> (process creation) to anchor the timeline.</li>
+                        <li>Pull the <strong>ProcessGuid</strong> from a suspicious process 1 event, then filter on it to gather its <strong>3, 11, 22</strong> events into a single session view.</li>
+                        <li>Sort by <strong>Date/Time</strong> and correlate with the known attack window.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

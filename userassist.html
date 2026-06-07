@@ -1,0 +1,170 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — UserAssist Analysis</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <!-- ADD NEW SUBPAGE LINKS HERE -->
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#guids">GUIDs</a></li>
+        <li><a href="#regripper">RegRipper</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">UserAssist Analysis</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>UserAssist tracks applications, files, and links accessed by the user through <strong>Windows Explorer</strong>.</li>
+                        <li>Analysis must be performed <strong>per user</strong> — each user account has its own <code>NTUSER.DAT</code> hive containing their UserAssist data.</li>
+                        <li>All entries are encoded in <strong>ROT-13</strong> — Registry Explorer and the RegRipper userassist plugin decode this automatically.</li>
+                        <li>Each entry records <strong>run count</strong>, <strong>last run time</strong>, <strong>focus count</strong>, and <strong>focus time</strong> — providing a detailed picture of application usage.</li>
+                        <li>Located at: <code>NTUSER.DAT\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist\{GUID}\Count</code></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ GUIDs ══════════════════════════════════════════════ -->
+    <div class="topic-section green" id="guids">
+        <h3 data-toggle="guids-body" onclick="toggleSection('guids-body')">
+            <i class="fas fa-key"></i> GUIDs
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="guids-body">
+
+            <div class="hive-card">
+                <div class="hive-path">{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}</div>
+                <ul class="hive-desc">
+                    <li>Contains a list of <strong>applications, files, links, and other objects</strong> that have been accessed by the user.</li>
+                    <li>The primary GUID for application execution evidence — covers programs launched directly and files opened.</li>
+                    <li>Each entry includes the <strong>full path</strong> of the executable or file (ROT-13 encoded).</li>
+                </ul>
+            </div>
+
+            <div class="hive-card" style="margin-top: 8px;">
+                <div class="hive-path">{F4E57C4B-2036-45F0-A9AB-443BCFE33D9F}</div>
+                <ul class="hive-desc">
+                    <li>Lists the <strong>shortcut links (.lnk files)</strong> used to start programs.</li>
+                    <li>Captures application launches made via <strong>desktop shortcuts, taskbar pins, and Start Menu</strong> entries.</li>
+                    <li>Complements the first GUID — together they provide a complete view of how programs were launched.</li>
+                </ul>
+            </div>
+
+            <div class="note-box info" style="margin-top: 10px;"><i class="fas fa-circle-info"></i><span>Both GUIDs should be reviewed together for a complete picture of user activity. One captures direct execution, the other captures shortcut-based launches.</span></div>
+
+        </div>
+    </div>
+
+    <!-- ══ REGRIPPER ══════════════════════════════════════════ -->
+    <div class="topic-section peach" id="regripper">
+        <h3 data-toggle="regripper-body" onclick="toggleSection('regripper-body')">
+            <i class="fas fa-terminal"></i> RegRipper
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="regripper-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>userassist</strong> plugin parses both GUIDs and decodes all ROT-13 entries automatically.</li>
+                        <li>Run against each user's <strong>NTUSER.DAT</strong> hive — repeat for every user account found on the system.</li>
+                        <li>Output includes the decoded program name, run count, and last execution timestamp.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="user-bar">
+                <label for="wf-user-input"><i class="fas fa-user"></i> Username</label>
+                <input type="text" id="wf-user-input" placeholder="e.g. john" autocomplete="off">
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="description"><strong>Run against a user's NTUSER.DAT:</strong></div>
+                    <div class="command-box">
+                        <span class="command" data-tmpl="rip.exe -r C:\Cases\Analysis\Registry\{u}NTUSER.DAT -p userassist > C:\Cases\Analysis\Registry\RR_Output\{u}userassist.txt &amp;&amp; type C:\Cases\Analysis\Registry\RR_Output\{u}userassist.txt">rip.exe -r C:\Cases\Analysis\Registry\NTUSER.DAT -p userassist > C:\Cases\Analysis\Registry\RR_Output\userassist.txt && type C:\Cases\Analysis\Registry\RR_Output\userassist.txt</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

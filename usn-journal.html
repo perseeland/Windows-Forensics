@@ -1,0 +1,229 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — USN Journal</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#what-it-records">What It Records</a></li>
+        <li><a href="#deleted-files">Deleted Files</a></li>
+        <li><a href="#mftecmd">MFTECmd</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">USN Journal</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="hive-card">
+                <div class="hive-path">$Extend\$UsnJrnl:$J — Root of the NTFS volume</div>
+            </div>
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>USN Journal</strong> (Update Sequence Number Journal) is an NTFS feature that records every change made to files and directories on the volume.</li>
+                        <li>Every file <strong>creation, modification, rename, deletion, and attribute change</strong> generates a USN entry.</li>
+                        <li>The journal is stored in a hidden system file at <code>$Extend\$UsnJrnl</code> and contains two data streams:</li>
+                    </ul>
+                    <div class="hive-list" style="margin-top: 8px;">
+                        <div class="hive-card">
+                            <div class="hive-path">$J — Journal data stream</div>
+                            <ul class="hive-desc">
+                                <li>The main stream containing all change records — this is the file parsed for forensic analysis.</li>
+                            </ul>
+                        </div>
+                        <div class="hive-card">
+                            <div class="hive-path">$Max — Journal metadata stream</div>
+                            <ul class="hive-desc">
+                                <li>Contains configuration info about the journal such as maximum size and allocation delta.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="note-box warn" style="margin-top: 10px;"><i class="fas fa-triangle-exclamation"></i><span>The USN Journal is <strong>circular</strong> — once it reaches its maximum size, older entries are overwritten. The further back in time you investigate, the less likely the entries are still present.</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ WHAT IT RECORDS ═══════════════════════════════════ -->
+    <div class="topic-section green" id="what-it-records">
+        <h3 data-toggle="what-it-records-body" onclick="toggleSection('what-it-records-body')">
+            <i class="fas fa-list-check"></i> What It Records
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="what-it-records-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>Each USN entry contains the following fields:</li>
+                    </ul>
+                    <div class="hive-list" style="margin-top: 8px;">
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--blue);">USN (Update Sequence Number)</div>
+                            <ul class="hive-desc"><li>A unique incrementing number assigned to each change record — can be used to determine order of events.</li></ul>
+                        </div>
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--green);">Timestamp</div>
+                            <ul class="hive-desc"><li>The exact date and time the change occurred — useful for timeline reconstruction.</li></ul>
+                        </div>
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--peach);">File Name &amp; Parent Directory</div>
+                            <ul class="hive-desc"><li>The name of the file and its parent folder at the time of the change.</li></ul>
+                        </div>
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--pink);">Reason Flags</div>
+                            <ul class="hive-desc">
+                                <li>Describes <strong>what type of change</strong> occurred. Key flags include:</li>
+                                <li><code>FILE_CREATE</code> — file was created</li>
+                                <li><code>FILE_DELETE</code> — file was deleted</li>
+                                <li><code>DATA_EXTEND</code> — file content was added to</li>
+                                <li><code>RENAME_OLD_NAME</code> / <code>RENAME_NEW_NAME</code> — file was renamed</li>
+                                <li><code>CLOSE</code> — file handle was closed (often final entry for a session)</li>
+                            </ul>
+                        </div>
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--yellow);">File Reference Number</div>
+                            <ul class="hive-desc"><li>Links the USN entry to its <strong>MFT entry</strong> — useful for correlating USN records with MFT data.</li></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ DELETED FILES ══════════════════════════════════════ -->
+    <div class="topic-section peach" id="deleted-files">
+        <h3 data-toggle="deleted-files-body" onclick="toggleSection('deleted-files-body')">
+            <i class="fas fa-trash-can"></i> Deleted Files
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="deleted-files-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>The USN Journal is one of the most valuable sources for <strong>proving file deletion</strong> — a <code>FILE_DELETE</code> reason flag records when a file was deleted along with its name and timestamp.</li>
+                        <li>Critically, USN entries survive <strong>even after the MFT entry has been reused</strong> — meaning you can find evidence of deleted files that are no longer recoverable from the MFT.</li>
+                        <li>You can reconstruct the <strong>full path</strong> of a deleted file by tracing the parent directory reference through the journal entries.</li>
+                        <li>Look for a sequence of entries ending in <code>RENAME_OLD_NAME</code> → <code>RENAME_NEW_NAME</code> → <code>FILE_DELETE</code> — this is the typical pattern when a file is moved to the <strong>Recycle Bin</strong> and then permanently deleted.</li>
+                        <li>Combining USN Journal entries with <strong>$MFT</strong> records and <strong>$I30</strong> directory indexes gives the most complete picture of file deletion activity.</li>
+                    </ul>
+                    <div class="note-box info"><i class="fas fa-circle-info"></i><span>Even if a file's content is unrecoverable, the USN Journal can still prove it <strong>existed, was accessed, and was deleted</strong> — which may be sufficient evidence in an investigation.</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ MFTECmd ═══════════════════════════════════════════ -->
+    <div class="topic-section yellow" id="mftecmd">
+        <h3 data-toggle="mftecmd-body" onclick="toggleSection('mftecmd-body')">
+            <i class="fas fa-terminal"></i> MFTECmd
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="mftecmd-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>MFTECmd</strong> by Eric Zimmermann can also parse the <code>$J</code> data stream of the USN Journal and export it as a CSV for analysis in <strong>Timeline Explorer</strong>.</li>
+                        <li>The <code>$J</code> file must be collected from the image — KAPE's <strong>KapeTriage</strong> package collects it automatically.</li>
+                        <li>Using the <strong>-m flag</strong> to point to the <code>$MFT</code> allows MFTECmd to resolve <strong>full file paths</strong> from the MFT for each USN entry — without it, only the file name is shown. Always use <code>-m</code> for a more complete output.</li>
+                        <li>In Timeline Explorer filter by the <strong>Reason</strong> column — sort or search for <code>FILE_DELETE</code> entries to focus on deletions during the attack window.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="user-bar">
+                <label for="wf-drive-input"><i class="fas fa-hard-drive"></i> Drive</label>
+                <input type="text" id="wf-drive-input" placeholder="e.g. C" autocomplete="off">
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> MFTECmd</div>
+                <div class="command-container">
+                    <div class="description"><strong>Parse $J with $MFT for full path resolution (recommended):</strong></div>
+                    <div class="command-box">
+                        <span class="command" data-tmpl="MFTECmd.exe -f &quot;C:\Cases\{d}\$Extend\$J&quot; -m &quot;C:\Cases\{d}\$MFT&quot; --csv &quot;C:\Cases\Analysis\NTFS&quot; --csvf UsnJrnl.csv">MFTECmd.exe -f "C:\Cases\C\$Extend\$J" -m "C:\Cases\C\$MFT" --csv "C:\Cases\Analysis\NTFS" --csvf UsnJrnl.csv</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                    <div class="description"><strong>Parse $J without $MFT (file name only):</strong></div>
+                    <div class="command-box">
+                        <span class="command" data-tmpl="MFTECmd.exe -f &quot;C:\Cases\{d}\$Extend\$J&quot; --csv &quot;C:\Cases\Analysis\NTFS&quot; --csvf UsnJrnl.csv">MFTECmd.exe -f "C:\Cases\C\$Extend\$J" --csv "C:\Cases\Analysis\NTFS" --csvf UsnJrnl.csv</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

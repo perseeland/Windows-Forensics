@@ -1,0 +1,205 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Users</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        const USERS_KEY = 'wf-users-checks';
+
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function toggleCheck(id) {
+            const card = document.getElementById(id);
+            const btn  = card.querySelector('.check-btn');
+            card.classList.toggle('checked');
+            btn.textContent = card.classList.contains('checked') ? '✅' : '☐';
+            const saved = JSON.parse(localStorage.getItem(USERS_KEY) || '{}');
+            saved[id] = card.classList.contains('checked');
+            localStorage.setItem(USERS_KEY, JSON.stringify(saved));
+        }
+
+        function loadChecks() {
+            const saved = JSON.parse(localStorage.getItem(USERS_KEY) || '{}');
+            Object.keys(saved).forEach(id => {
+                const card = document.getElementById(id);
+                if (card && saved[id]) {
+                    card.classList.add('checked');
+                    card.querySelector('.check-btn').textContent = '✅';
+                }
+            });
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', loadChecks);
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#investigation-questions">Investigation Questions</a></li>
+        <li><a href="#sam-hive">SAM Hive</a></li>
+        <li><a href="#profilelist">ProfileList</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Users</h1>
+
+    <!-- ══ INVESTIGATION QUESTIONS ═══════════════════════════ -->
+    <div class="topic-section cyan" id="investigation-questions">
+        <h3 data-toggle="investigation-questions-body" onclick="toggleSection('investigation-questions-body')">
+            <i class="fas fa-circle-question"></i> Investigation Questions
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="investigation-questions-body">
+            <div class="reg-card" id="check-iq-1">
+                <div class="reg-card-header">
+                    <span class="reg-notes" style="font-family: inherit; font-size: 0.85rem;">Which accounts were <strong>active during the attack timeframe</strong>?</span>
+                    <button class="check-btn" onclick="toggleCheck('check-iq-1')">☐</button>
+                </div>
+            </div>
+            <div class="reg-card" id="check-iq-2">
+                <div class="reg-card-header">
+                    <span class="reg-notes" style="font-family: inherit; font-size: 0.85rem;">Which account(s) were <strong>created</strong>?</span>
+                    <button class="check-btn" onclick="toggleCheck('check-iq-2')">☐</button>
+                </div>
+            </div>
+            <div class="reg-card" id="check-iq-3">
+                <div class="reg-card-header">
+                    <span class="reg-notes" style="font-family: inherit; font-size: 0.85rem;">Which accounts are <strong>Administrator group members</strong>?</span>
+                    <button class="check-btn" onclick="toggleCheck('check-iq-3')">☐</button>
+                </div>
+            </div>
+            <div class="reg-card" id="check-iq-4">
+                <div class="reg-card-header">
+                    <span class="reg-notes" style="font-family: inherit; font-size: 0.85rem;">Which users have <strong>profiles on the system</strong>? (Interactive logins)</span>
+                    <button class="check-btn" onclick="toggleCheck('check-iq-4')">☐</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ SAM HIVE ═══════════════════════════════════════════ -->
+    <div class="topic-section green" id="sam-hive">
+        <h3 data-toggle="sam-hive-body" onclick="toggleSection('sam-hive-body')">
+            <i class="fas fa-users"></i> SAM Hive
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="sam-hive-body">
+
+            <div class="hive-card">
+                <div class="hive-path">C:\Windows\System32\config\SAM</div>
+            </div>
+
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-label"><span class="step-num">1</span> Alias &amp; Users Bookmarks</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>In Registry Explorer, navigate to the <strong>Bookmarks</strong> tab and find the <strong>Alias</strong> section — this shows all group names and their associated user <strong>SIDs</strong>, identifying which users belong to which group (e.g. Administrators).</li>
+                        <li>Under the <strong>Users</strong> bookmark, export the data as a <strong>CSV</strong> and open it in <strong>Timeline Explorer</strong> for a cleaner and sortable view of all user accounts.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">2</span> Account Timestamps</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>For each account you can view the <strong>last login time</strong>, <strong>account created date</strong>, and <strong>last password change</strong>.</li>
+                        <li>Cross-reference these timestamps with your attack timeframe to identify suspicious account activity.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ══ PROFILELIST ════════════════════════════════════════ -->
+    <div class="topic-section peach" id="profilelist">
+        <h3 data-toggle="profilelist-body" onclick="toggleSection('profilelist-body')">
+            <i class="fas fa-address-card"></i> ProfileList — Identify Profiles on the System
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="profilelist-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>ProfileList</strong> plugin identifies all user profiles created on the system from the SOFTWARE hive.</li>
+                        <li>Useful for confirming which accounts have had <strong>interactive logins</strong> and have a profile directory on disk.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="command-box">
+                        <span class="command">rip.exe -r C:\Cases\Analysis\Registry\SOFTWARE -p profilelist > C:\Cases\Analysis\Registry\RR_Output\profilelist.txt && type C:\Cases\Analysis\Registry\RR_Output\profilelist.txt</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

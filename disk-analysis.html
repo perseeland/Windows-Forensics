@@ -1,0 +1,291 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — $MFT</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#mft-overview">$MFT</a></li>
+        <li><a href="#mft-attributes">Key Attributes</a></li>
+        <li><a href="#timestamps">Timestamps</a></li>
+        <li><a href="#mftecmd">MFTECmd</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">$MFT</h1>
+
+    <!-- ══ MFT OVERVIEW ══════════════════════════════════════ -->
+    <div class="topic-section cyan" id="mft-overview">
+        <h3 data-toggle="mft-overview-body" onclick="toggleSection('mft-overview-body')">
+            <i class="fas fa-table"></i> MFT — Master File Table
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="mft-overview-body">
+            <div class="hive-card">
+                <div class="hive-path">$MFT — Root of the NTFS volume (e.g. C:\$MFT)</div>
+            </div>
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>Master File Table (MFT)</strong> is the core database of every NTFS volume — it contains an entry for every file and directory on the disk.</li>
+                        <li>Each MFT entry is <strong>1024 bytes</strong> and stores metadata about the file including timestamps, file size, permissions, and data location.</li>
+                        <li>When a file is <strong>deleted</strong>, its MFT entry is marked as available but not immediately overwritten — the entry and its metadata often remain recoverable.</li>
+                        <li>The MFT itself is a hidden system file located at the root of every NTFS volume.</li>
+                        <li>Parsing the MFT gives a <strong>complete file system timeline</strong> — every file ever created, modified, accessed, or deleted.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ KEY ATTRIBUTES ════════════════════════════════════ -->
+    <div class="topic-section green" id="mft-attributes">
+        <h3 data-toggle="mft-attributes-body" onclick="toggleSection('mft-attributes-body')">
+            <i class="fas fa-list"></i> Key MFT Attributes
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="mft-attributes-body">
+            <div class="hive-list">
+
+                <div class="hive-card">
+                    <div class="hive-path">$STANDARD_INFORMATION</div>
+                    <ul class="hive-desc">
+                        <li>Contains the <strong>four NTFS timestamps</strong>: Created, Modified, MFT Modified, and Last Accessed.</li>
+                        <li>These timestamps <strong>can be modified</strong> by user-mode applications — commonly manipulated in timestomping attacks.</li>
+                        <li>Also stores file attributes (hidden, read-only, system) and owner SID.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path">$FILE_NAME</div>
+                    <ul class="hive-desc">
+                        <li>Also contains <strong>four NTFS timestamps</strong> — but these are updated by the <strong>kernel only</strong> and are much harder to tamper with.</li>
+                        <li>Contains the <strong>file name</strong> and a reference to the <strong>parent directory</strong> MFT entry.</li>
+                        <li>Comparing <code>$STANDARD_INFORMATION</code> vs <code>$FILE_NAME</code> timestamps is a key technique for detecting <strong>timestomping</strong>.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path">$DATA</div>
+                    <ul class="hive-desc">
+                        <li>Contains the actual <strong>file content</strong> or a pointer to where the data is stored on disk (data runs).</li>
+                        <li>Small files may have their content stored <strong>directly within the MFT entry</strong> (resident data).</li>
+                        <li>Larger files store data in clusters on disk with pointers recorded here (non-resident data).</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ TIMESTAMPS ════════════════════════════════════════ -->
+    <div class="topic-section peach" id="timestamps">
+        <h3 data-toggle="timestamps-body" onclick="toggleSection('timestamps-body')">
+            <i class="fas fa-clock"></i> Timestamps — MACB
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="timestamps-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>NTFS records <strong>four timestamps</strong> per file, commonly referred to as <strong>MACB</strong>.</li>
+                        <li>MACB timestamps are taken from <strong><code>$STANDARD_INFORMATION</code></strong> — this is what forensic tools such as MFTECmd and Timeline Explorer display by default.</li>
+                        <li><code>$FILE_NAME</code> timestamps are used separately for <strong>timestomping detection</strong> only — they are not the primary MACB source.</li>
+                    </ul>
+                    <div class="section-img">
+                        <img src="https://andreafortuna.org/assets/2017/10/0*8m0sfwSuNRk85grp.jpg" alt="MACB Timestamps Diagram">
+                    </div>
+
+                    <div class="hive-list">
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--blue);">M — Modified</div>
+                            <ul class="hive-desc"><li>When the <strong>file content</strong> was last changed.</li></ul>
+                        </div>
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--green);">A — Accessed</div>
+                            <ul class="hive-desc"><li>When the file was last <strong>read or opened</strong>. Often unreliable — Windows may disable last access updates for performance.</li></ul>
+                        </div>
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--peach);">C — MFT Changed ($MFT Modified)</div>
+                            <ul class="hive-desc"><li>When the <strong>MFT entry itself</strong> was last changed (e.g. permissions, filename, attribute changes).</li></ul>
+                        </div>
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--pink);">B — Born (Created)</div>
+                            <ul class="hive-desc"><li>When the file was <strong>first created</strong> on this volume. Note: copying a file sets a new Born time but preserves Modified time.</li></ul>
+                        </div>
+                    </div>
+                    <div class="note-box warn" style="margin-top: 10px;"><i class="fas fa-triangle-exclamation"></i><span><strong>Timestomping</strong> — attackers modify <code>$STANDARD_INFORMATION</code> timestamps to hide activity. Always compare with <code>$FILE_NAME</code> timestamps — if they differ significantly, timestomping is suspected.</span></div>
+                </div>
+            </div>
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">i</span> Archive &amp; Copy Timestamps — Not Always Timestomping</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>A <strong>Born timestamp newer than Modified</strong> does not always mean timestomping — this is a legitimate and common pattern caused by normal file operations.</li>
+                    </ul>
+                    <div class="hive-list" style="margin-top: 8px;">
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--blue);">Copying a file</div>
+                            <ul class="hive-desc">
+                                <li>The <strong>Born timestamp is reset</strong> to the time of the copy.</li>
+                                <li>The <strong>Modified timestamp is preserved</strong> from the original.</li>
+                                <li>Result: Born is <em>newer</em> than Modified — normal, not timestomping.</li>
+                            </ul>
+                        </div>
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--green);">Extracting from an archive (.zip, .rar, .7z)</div>
+                            <ul class="hive-desc">
+                                <li>The <strong>Born timestamp is set to the extraction time</strong>.</li>
+                                <li>The <strong>Modified timestamp may be preserved</strong> from inside the archive (tool-dependent).</li>
+                                <li>Result: Born newer than Modified — expected and legitimate.</li>
+                            </ul>
+                        </div>
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--peach);">Moving a file (same volume)</div>
+                            <ul class="hive-desc">
+                                <li>All timestamps are <strong>generally preserved</strong> — Born and Modified remain unchanged.</li>
+                            </ul>
+                        </div>
+                        <div class="hive-card">
+                            <div class="hive-path" style="color: var(--red);">Timestomping (suspicious)</div>
+                            <ul class="hive-desc">
+                                <li><code>$STANDARD_INFORMATION</code> timestamps are backdated, but <code>$FILE_NAME</code> timestamps <strong>do not match</strong> — the key indicator.</li>
+                                <li>Look for timestamps <strong>rounded to exact seconds</strong> — manual timestomping tools often produce this artefact.</li>
+                                <li>A <code>$SI</code> Created timestamp that is <em>earlier</em> than the <code>$FN</code> Created timestamp is a strong indicator of manipulation.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="note-box info" style="margin-top: 10px;"><i class="fas fa-circle-info"></i><span>Always check <strong>context</strong> — Born newer than Modified is suspicious on a system file but expected on a file extracted from a downloaded archive. Correlate with RecentDocs, browser history, and other artefacts before concluding timestomping.</span></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ══ MFTECmd ═══════════════════════════════════════════ -->
+    <div class="topic-section yellow" id="mftecmd">
+        <h3 data-toggle="mftecmd-body" onclick="toggleSection('mftecmd-body')">
+            <i class="fas fa-terminal"></i> MFTECmd
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="mftecmd-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>MFTECmd</strong> by Eric Zimmermann parses the <code>$MFT</code> file and exports it as a <strong>CSV</strong> for analysis in <strong>Timeline Explorer</strong>.</li>
+                        <li>Outputs all file entries including full paths, timestamps, file sizes, and resident data.</li>
+                        <li>Open the output CSV in <strong>Timeline Explorer</strong> and filter/sort by timestamp to build a file system activity timeline.</li>
+                        <li>Look for files created or modified <strong>during the attack window</strong> and files in suspicious locations (Temp, AppData, Downloads).</li>
+                        <li>MFTECmd includes a <strong>SI&lt;FN</strong> column in the CSV output — a value of <code>True</code> means the <code>$STANDARD_INFORMATION</code> timestamps are <strong>earlier than</strong> the <code>$FILE_NAME</code> timestamps, which is a strong indicator of <strong>timestomping</strong>. Filter this column in Timeline Explorer to quickly identify suspicious entries.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="user-bar">
+                <label for="wf-drive-input"><i class="fas fa-hard-drive"></i> Drive</label>
+                <input type="text" id="wf-drive-input" placeholder="e.g. C" autocomplete="off">
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> MFTECmd</div>
+                <div class="command-container">
+                    <div class="description"><strong>Parse $MFT and export to CSV:</strong></div>
+                    <div class="command-box">
+                        <span class="command" data-tmpl="MFTECmd.exe -f &quot;C:\Cases\{d}\$MFT&quot; --csv &quot;C:\Cases\Analysis\NTFS&quot; --csvf MFT.csv">MFTECmd.exe -f "C:\Cases\C\$MFT" --csv "C:\Cases\Analysis\NTFS" --csvf MFT.csv</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                    <div class="description"><strong>Dump full details for a specific MFT entry (--de flag):</strong></div>
+                    <div class="user-bar">
+                        <label for="wf-entry-input"><i class="fas fa-hashtag"></i> Entry</label>
+                        <input type="text" id="wf-entry-input" placeholder="e.g. 624" autocomplete="off">
+                    </div>
+                    <div class="command-box">
+                        <span class="command" data-tmpl="MFTECmd.exe -f &quot;C:\Cases\{d}\$MFT&quot; --de {e}">MFTECmd.exe -f "C:\Cases\C\$MFT" --de 624</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-label"><span class="step-num">i</span> The --de Flag</div>
+                <div class="step-notes">
+                    <ul>
+                        <li><code>--de</code> dumps the <strong>full details of a specific MFT entry</strong> by its entry number or entry-sequence number.</li>
+                        <li>Format is <code>Entry</code> or <code>Entry-Seq</code> as decimal or hex — e.g. <code>5</code>, <code>624-5</code>, or <code>0x270-0x5</code>.</li>
+                        <li>Useful when you have identified a file of interest in the CSV output and want to <strong>inspect its full MFT record</strong> in detail — all attributes, timestamps, data runs, and flags.</li>
+                        <li>The entry number can be found in the <strong>EntryNumber</strong> column of the MFTECmd CSV output.</li>
+                    </ul>
+                    <div class="note-box info"><i class="fas fa-circle-info"></i><span>Deleted files are included in the standard CSV output — look for the <strong>InUse</strong> column set to <code>False</code> to identify entries that have been deleted.</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

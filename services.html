@@ -1,0 +1,224 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Windows Services</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#key-values">Key Registry Values</a></li>
+        <li><a href="#what-to-look-for">What To Look For</a></li>
+        <li><a href="#tools">Tools</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Windows Services</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="hive-card">
+                <div class="hive-path">HKLM\SYSTEM\CurrentControlSet\Services\</div>
+            </div>
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-notes">
+                    <ul>
+                        <li>Windows <strong>Services</strong> are long-running background processes that can start automatically at boot — making them a powerful persistence mechanism for attackers.</li>
+                        <li>All service configurations are stored under <code>HKLM\SYSTEM\CurrentControlSet\Services\</code> — each service has its own subkey.</li>
+                        <li>Malicious services often run as <strong>SYSTEM</strong> — the highest privilege level on Windows — making them difficult to detect and stop.</li>
+                        <li>Unlike Run Keys, services start <strong>before user login</strong> — they persist even if no user ever logs in.</li>
+                        <li>The <strong>last write time</strong> of a service registry key records when it was created or last modified — useful for placing the installation of a malicious service within the attack timeline.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ KEY REGISTRY VALUES ═══════════════════════════════ -->
+    <div class="topic-section green" id="key-values">
+        <h3 data-toggle="key-values-body" onclick="toggleSection('key-values-body')">
+            <i class="fas fa-list"></i> Key Registry Values
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="key-values-body">
+            <div class="hive-list">
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--blue);">ImagePath</div>
+                    <ul class="hive-desc">
+                        <li>The <strong>full path to the service executable</strong> — the most important value for forensic analysis.</li>
+                        <li>Malicious services often point to executables in <strong>Temp, AppData, ProgramData, or unusual system directories</strong>.</li>
+                        <li>May also use <strong>command-line arguments</strong> to launch scripts via <code>cmd.exe</code>, <code>powershell.exe</code>, or <code>wscript.exe</code>.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--green);">Start</div>
+                    <ul class="hive-desc">
+                        <li>Controls when the service starts — key values to note:</li>
+                        <li><code>0</code> = Boot — loads by the bootloader before the kernel</li>
+                        <li><code>1</code> = System — loaded by the kernel during boot</li>
+                        <li><code>2</code> = <strong>Automatic</strong> — starts automatically at login (most common for malicious services)</li>
+                        <li><code>3</code> = Manual — only starts when explicitly called</li>
+                        <li><code>4</code> = Disabled</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach);">ObjectName</div>
+                    <ul class="hive-desc">
+                        <li>The <strong>account the service runs as</strong> — typically <code>LocalSystem</code>, <code>LocalService</code>, or <code>NetworkService</code>.</li>
+                        <li>A service running as <strong>LocalSystem</strong> has the highest privileges — flag any unknown service using this account.</li>
+                        <li>Services using a custom domain or local account may indicate lateral movement or credential abuse.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--pink);">DisplayName &amp; Description</div>
+                    <ul class="hive-desc">
+                        <li>Attackers often use <strong>names that mimic legitimate Windows services</strong> — e.g. slightly misspelled names or generic descriptions like "Windows Update Helper".</li>
+                        <li>An empty or suspicious description is a red flag for a malicious service.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ WHAT TO LOOK FOR ══════════════════════════════════ -->
+    <div class="topic-section peach" id="what-to-look-for">
+        <h3 data-toggle="what-to-look-for-body" onclick="toggleSection('what-to-look-for-body')">
+            <i class="fas fa-magnifying-glass"></i> What To Look For
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="what-to-look-for-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>ImagePath pointing to non-standard locations</strong> — Temp, Downloads, AppData, ProgramData, or the root of C:\ are suspicious.</li>
+                        <li><strong>Services with Start = 2 (Automatic)</strong> that were recently created — cross-reference the key's last write time with the attack window.</li>
+                        <li><strong>Services running as LocalSystem</strong> with an unknown or suspicious name.</li>
+                        <li><strong>ImagePath using LOLBins</strong> — e.g. <code>cmd.exe /c powershell.exe -enc ...</code> or <code>wscript.exe C:\Temp\malware.vbs</code>.</li>
+                        <li><strong>Missing service binary</strong> — if the ImagePath points to a file that no longer exists on disk, it may have been deleted after use or the service may be a remnant of a cleanup attempt.</li>
+                        <li><strong>Misspelled or lookalike service names</strong> — e.g. <code>svchost32</code> instead of <code>svchost</code>, or extra spaces in the name.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ TOOLS ══════════════════════════════════════════════ -->
+    <div class="topic-section yellow" id="tools">
+        <h3 data-toggle="tools-body" onclick="toggleSection('tools-body')">
+            <i class="fas fa-terminal"></i> Tools
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="tools-body">
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">1</span> Registry Explorer</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Load the <strong>SYSTEM</strong> hive and navigate to <code>CurrentControlSet\Services\</code>.</li>
+                        <li>Use the <strong>Bookmarks</strong> tab — Registry Explorer has a pre-built bookmark for Services.</li>
+                        <li>Check the <strong>last write time</strong> of each service key — recently created or modified services during the attack window are priority targets.</li>
+                        <li>Export to CSV for a sortable view of all services and their ImagePath values.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">2</span> RegRipper</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>services</strong> plugin outputs all service configurations including ImagePath, Start type, and ObjectName.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="command-box">
+                        <span class="command">rip.exe -r C:\Cases\Analysis\Registry\SYSTEM -p services > C:\Cases\Analysis\Registry\RR_Output\services.txt && type C:\Cases\Analysis\Registry\RR_Output\services.txt</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

@@ -1,0 +1,308 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Registry Overview</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#hive-location">Hive Location</a></li>
+        <li><a href="#system-hives">System Hives</a></li>
+        <li><a href="#user-hives">User Hives</a></li>
+        <li><a href="#additional-info">Additional Info</a></li>
+        <li><a href="#tools">Tools</a></li>
+
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Windows Registry Overview</h1>
+
+    <div class="two-col-layout">
+    <div class="col-main">
+
+    <!-- ══ HIVE LOCATION ══════════════════════════════════════ -->
+    <div class="topic-section cyan" id="hive-location">
+        <h3 data-toggle="hive-location-body" onclick="toggleSection('hive-location-body')">
+            <i class="fas fa-folder-open"></i> Hive Location
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="hive-location-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li><code>\Windows\System32\config</code> contains the hives for the target system.</li>
+                        <li>Registry hives are <strong>binary files</strong> — they cannot be read as plain text and require a tool such as <strong>Registry Explorer</strong> or <strong>RegRipper</strong> to parse.</li>
+                        <li>When analysing a mounted image, hives must be <strong>loaded offline</strong> — they are not live and will not reflect the current running state of a system.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ SYSTEM SPECIFIC HIVES ══════════════════════════════ -->
+    <div class="topic-section green" id="system-hives">
+        <h3 data-toggle="system-hives-body" onclick="toggleSection('system-hives-body')">
+            <i class="fas fa-server"></i> System Specific Hives
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="system-hives-body">
+            <div class="hive-list">
+
+                <div class="hive-card">
+                    <div class="hive-path">\Windows\System32\config\DEFAULT</div>
+                    <ul class="hive-desc">
+                        <li>Contains the default user profile settings applied before any user logs in.</li>
+                        <li>Maps to <code>HKEY_USERS\.DEFAULT</code>.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path">\Windows\System32\config\SAM</div>
+                    <ul class="hive-desc">
+                        <li>Security Account Manager — stores local user account names and <strong>hashed passwords</strong>.</li>
+                        <li>Maps to <code>HKEY_LOCAL_MACHINE\SAM</code>.</li>
+                        <li>Key target for credential analysis.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path">\Windows\System32\config\SECURITY</div>
+                    <ul class="hive-desc">
+                        <li>Stores security policy settings and <strong>LSA secrets</strong> (cached credentials, service account passwords).</li>
+                        <li>Maps to <code>HKEY_LOCAL_MACHINE\SECURITY</code>.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path">\Windows\System32\config\SOFTWARE</div>
+                    <ul class="hive-desc">
+                        <li>Contains installed software configuration, OS settings, and application data.</li>
+                        <li>Maps to <code>HKEY_LOCAL_MACHINE\SOFTWARE</code>.</li>
+                        <li>Rich source of installed program evidence and system configuration.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path">\Windows\System32\config\SYSTEM</div>
+                    <ul class="hive-desc">
+                        <li>Stores hardware configuration, device drivers, services, and startup settings.</li>
+                        <li>Maps to <code>HKEY_LOCAL_MACHINE\SYSTEM</code>.</li>
+                        <li>Key for identifying connected devices and installed services.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ USER SPECIFIC HIVES ════════════════════════════════ -->
+    <div class="topic-section peach" id="user-hives">
+        <h3 data-toggle="user-hives-body" onclick="toggleSection('user-hives-body')">
+            <i class="fas fa-user"></i> User Specific Hives
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="user-hives-body">
+            <div class="hive-list">
+
+                <div class="hive-card">
+                    <div class="hive-path">\Users\&lt;user&gt;\AppData\Local\Microsoft\Windows\UsrClass.dat</div>
+                    <ul class="hive-desc">
+                        <li>Contains user-specific shell settings, COM class registrations, and <strong>file associations</strong>.</li>
+                        <li>Also stores <strong>ShellBags</strong> — forensic artefacts that record folder browsing history, even for deleted folders.</li>
+                        <li>Maps to <code>HKEY_CURRENT_USER\Software\Classes</code>.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path">\Users\&lt;user&gt;\NTUSER.DAT</div>
+                    <ul class="hive-desc">
+                        <li>The primary user hive — contains all user-specific settings.</li>
+                        <li>Includes <strong>recently accessed files</strong>, typed URLs, search history, run history, and application preferences.</li>
+                        <li>Maps to <code>HKEY_CURRENT_USER</code>.</li>
+                        <li>One of the most valuable artefacts for user activity analysis.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ ADDITIONAL INFO ════════════════════════════════════ -->
+    <div class="topic-section yellow" id="additional-info">
+        <h3 data-toggle="additional-info-body" onclick="toggleSection('additional-info-body')">
+            <i class="fas fa-circle-info"></i> Additional Info
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="additional-info-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li><code>.log</code> / <code>.LOG1</code> / <code>.LOG2</code> — Transaction logs that record changes to keys and value entries in the hive before they are committed.</li>
+                        <li>These logs are used by Windows to <strong>recover a hive</strong> after a crash or unclean shutdown — the system replays the log to bring the hive to a consistent state.</li>
+                        <li>Forensically important: the transaction logs may contain <strong>more recent changes</strong> that have not yet been written back to the main hive file. Always parse the hive together with its logs for a complete picture.</li>
+                        <li>Tools such as <strong>Registry Explorer</strong> can automatically apply transaction logs when loading a hive.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </div><!-- /col-main -->
+    <div class="col-side">
+
+    <!-- ══ TOOLS ══════════════════════════════════════════════ -->
+    <div class="topic-section pink" id="tools">
+        <h3 data-toggle="tools-body" onclick="toggleSection('tools-body')">
+            <i class="fas fa-wrench"></i> Tools
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="tools-body">
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">1</span> Registry Explorer</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Load the hive files collected from the triage into <strong>Registry Explorer</strong>.</li>
+                        <li>When loading, Registry Explorer detects <strong>.LOG1 / .LOG2</strong> files and prompts you to apply them — always accept to get the most complete view.</li>
+                        <li>A hive loaded without its transaction logs is a <strong>dirty hive</strong> and may be missing recent changes.</li>
+                        <li>The <strong>#Values</strong> column shows the number of values in each key — useful for quickly spotting keys with data worth investigating.</li>
+                        <li>The <strong>Bookmarks</strong> tab provides quick navigation to common forensic artefacts such as Run keys, recent files, and installed software.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">2</span> RegRipper</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>A command-line tool that extracts and parses forensic artefacts from registry hives using <strong>plugins</strong>.</li>
+                        <li>Each plugin targets a specific key or artefact — e.g. run keys, USB devices, recently accessed files.</li>
+                        <li>Faster than manually browsing a hive when you know what you're looking for.</li>
+                    </ul>
+
+                    <div class="cmd-label">Run a single plugin against a hive:</div>
+                    <div class="command-box">
+                        <span class="command">rip.exe -r &lt;hive&gt; -p &lt;plugin&gt;</span>
+                    </div>
+
+                    <div class="cmd-label">Run all plugins against a hive:</div>
+                    <div class="command-box">
+                        <span class="command">rip.exe -r &lt;hive&gt; -a</span>
+                    </div>
+
+                    <div class="cmd-label">List all available plugins:</div>
+                    <div class="command-box">
+                        <span class="command">rip.exe -l</span>
+                    </div>
+
+                    <div class="cmd-label">Output results to a file:</div>
+                    <div class="command-box">
+                        <span class="command">rip.exe -r &lt;hive&gt; -p &lt;plugin&gt; &gt; output.txt</span>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">3</span> RegRipper Automation Script</div>
+                <div class="step-notes">
+                    <div class="command-container">
+                        <div class="description"><strong>List all files including hidden:</strong></div>
+                        <div class="command-box">
+                            <span class="command" data-base="attrib *">attrib *</span>
+                            <button onclick="copyCmd(this)">📋</button>
+                        </div>
+                        <div class="description"><strong>Unhide a file:</strong></div>
+                        <div class="command-box">
+                            <span class="command" data-base="attrib -h &lt;file&gt;">attrib -h &lt;file&gt;</span>
+                            <button onclick="copyCmd(this)">📋</button>
+                        </div>
+                        <div class="description"><strong>Clear system &amp; hidden attributes from all files:</strong></div>
+                        <div class="command-box">
+                            <span class="command" data-base="attrib -s -h *.*">attrib -s -h *.*</span>
+                            <button onclick="copyCmd(this)">📋</button>
+                        </div>
+                        <div class="description"><strong>Run all RegRipper plugins against every hive recursively:</strong></div>
+                        <div class="command-box">
+                            <span class="command" data-base="for /r %i in (*) do (C:\Tools\RegRipper\rip.exe -r %i -a > %i.txt)">for /r %i in (*) do (C:\Tools\RegRipper\rip.exe -r %i -a > %i.txt)</span>
+                            <button onclick="copyCmd(this)">📋</button>
+                        </div>
+                    </div>
+                    <div class="note-box info"><i class="fas fa-circle-info"></i><span>Open the output files in <strong>Notepad++</strong> and use <strong>Find in All Open Documents</strong> (Ctrl+Shift+F) for a faster way to search across all results at once.</span></div>
+                </div>
+            </div>
+
+        </div><!-- /tools-body -->
+    </div>
+
+    </div><!-- /col-side -->
+    </div><!-- /two-col-layout -->
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

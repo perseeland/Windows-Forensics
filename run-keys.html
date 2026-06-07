@@ -1,0 +1,195 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Run Keys</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#registry-locations">Registry Locations</a></li>
+        <li><a href="#registry-explorer">Registry Explorer</a></li>
+        <li><a href="#regripper">RegRipper</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Run Keys</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>Windows <strong>Run Keys</strong> are registry keys that specify programs to be executed automatically each time a user logs in or the system starts — one of the most commonly abused persistence mechanisms by attackers.</li>
+                        <li>There are two variants: <strong>Run</strong> (executes every startup) and <strong>RunOnce</strong> (executes once on next startup, then the entry is deleted).</li>
+                        <li>Entries can be set at the <strong>machine level</strong> (affects all users — HKLM) or the <strong>user level</strong> (affects only the specific user — HKCU).</li>
+                        <li>Attackers commonly add entries pointing to <strong>malware in Temp, AppData, or unusual directories</strong> to maintain persistence across reboots.</li>
+                        <li>Even if the malware file is deleted, the <strong>registry entry remains</strong> — this is forensic evidence of a persistence attempt.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ REGISTRY LOCATIONS ════════════════════════════════ -->
+    <div class="topic-section green" id="registry-locations">
+        <h3 data-toggle="registry-locations-body" onclick="toggleSection('registry-locations-body')">
+            <i class="fas fa-folder-open"></i> Registry Locations
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="registry-locations-body">
+            <div class="hive-list">
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach); margin-bottom: 6px;">HKLM — System-wide (all users)</div>
+                    <div class="hive-path">HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run</div>
+                    <div class="hive-path" style="margin-top: 6px;">HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce</div>
+                    <div class="hive-path" style="margin-top: 6px;">HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run</div>
+                    <ul class="hive-desc" style="margin-top: 8px;">
+                        <li>The <strong>WOW6432Node</strong> key is used by <strong>32-bit applications</strong> running on a 64-bit system — do not overlook this as malware may target it specifically.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach); margin-bottom: 6px;">HKCU — Per-user (current user only)</div>
+                    <div class="hive-path">HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run</div>
+                    <div class="hive-path" style="margin-top: 6px;">HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce</div>
+                    <ul class="hive-desc" style="margin-top: 8px;">
+                        <li>Found in the user's <strong>NTUSER.DAT</strong> hive — must be checked per user account.</li>
+                        <li>Attackers often use HKCU entries as they do <strong>not require admin privileges</strong> to write.</li>
+                    </ul>
+                </div>
+
+            </div>
+            <div class="note-box warn" style="margin-top: 10px;"><i class="fas fa-triangle-exclamation"></i><span>Always check <strong>both HKLM and HKCU</strong> Run keys and for every user profile on the system — a single missed HKCU entry could be the persistence mechanism used by the attacker.</span></div>
+        </div>
+    </div>
+
+    <!-- ══ REGISTRY EXPLORER ═════════════════════════════════ -->
+    <div class="topic-section peach" id="registry-explorer">
+        <h3 data-toggle="registry-explorer-body" onclick="toggleSection('registry-explorer-body')">
+            <i class="fas fa-search"></i> Registry Explorer
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="registry-explorer-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>Load the <strong>SOFTWARE</strong> hive (for HKLM entries) and each user's <strong>NTUSER.DAT</strong> hive (for HKCU entries).</li>
+                        <li>Navigate to the <strong>Bookmarks</strong> tab — Registry Explorer has pre-built bookmarks for the <strong>Run</strong> and <strong>RunOnce</strong> keys.</li>
+                        <li>Review each entry's <strong>value name</strong> (the label given to the entry) and <strong>value data</strong> (the full command or path that executes).</li>
+                        <li>Check the <strong>last write time</strong> of the Run key — this records when an entry was last added or modified, helping place the persistence attempt within the attack timeline.</li>
+                        <li>Flag entries pointing to paths in <strong>Temp, AppData, Downloads, or ProgramData</strong> — legitimate software rarely auto-starts from these locations.</li>
+                        <li>Flag entries using <strong>cmd.exe, powershell.exe, wscript.exe, or mshta.exe</strong> to launch scripts — a common attacker technique.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ REGRIPPER ══════════════════════════════════════════ -->
+    <div class="topic-section yellow" id="regripper">
+        <h3 data-toggle="regripper-body" onclick="toggleSection('regripper-body')">
+            <i class="fas fa-terminal"></i> RegRipper
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="regripper-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>run</strong> plugin parses all Run and RunOnce keys from both SOFTWARE and NTUSER.DAT hives.</li>
+                        <li>Run against the <strong>SOFTWARE hive</strong> for system-wide HKLM entries, and against each user's <strong>NTUSER.DAT</strong> for per-user entries.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="description"><strong>System-wide Run keys (HKLM):</strong></div>
+                    <div class="command-box">
+                        <span class="command">rip.exe -r C:\Cases\Analysis\Registry\SOFTWARE -p run > C:\Cases\Analysis\Registry\RR_Output\run_hklm.txt && type C:\Cases\Analysis\Registry\RR_Output\run_hklm.txt</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                    <div class="description"><strong>Per-user Run keys (HKCU):</strong></div>
+                    <div class="command-box">
+                        <span class="command">rip.exe -r C:\Cases\Analysis\Registry\NTUSER.DAT -p run > C:\Cases\Analysis\Registry\RR_Output\run_hkcu.txt && type C:\Cases\Analysis\Registry\RR_Output\run_hkcu.txt</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

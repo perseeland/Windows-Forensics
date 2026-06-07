@@ -1,0 +1,256 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Scheduled Tasks</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#locations">Locations</a></li>
+        <li><a href="#xml-structure">XML Structure</a></li>
+        <li><a href="#what-to-look-for">What To Look For</a></li>
+        <li><a href="#tools">Tools</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Scheduled Tasks</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li>Windows <strong>Scheduled Tasks</strong> allow programs and scripts to be executed automatically based on time, event triggers, or system conditions — making them a flexible and commonly abused persistence mechanism.</li>
+                        <li>Tasks can be triggered by <strong>system events</strong> (login, startup, network connection), <strong>specific times</strong> (daily, weekly, on idle), or <strong>custom event log entries</strong> — giving attackers precise control over when their payload runs.</li>
+                        <li>Scheduled tasks run under a configured <strong>user account or SYSTEM</strong>, and can be set to run <strong>whether or not the user is logged in</strong>.</li>
+                        <li>Each task is stored as an <strong>XML file on disk</strong> AND has a corresponding entry in the <strong>registry TaskCache</strong> — both should be examined.</li>
+                        <li>Deleted task XML files may still leave a <strong>registry stub</strong> in the TaskCache, and vice versa — cross-referencing both sources is important.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ LOCATIONS ══════════════════════════════════════════ -->
+    <div class="topic-section green" id="locations">
+        <h3 data-toggle="locations-body" onclick="toggleSection('locations-body')">
+            <i class="fas fa-folder-open"></i> Locations
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="locations-body">
+            <div class="hive-list">
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach); margin-bottom: 6px;">File System — Task XML Files</div>
+                    <div class="hive-path">C:\Windows\System32\Tasks\</div>
+                    <ul class="hive-desc" style="margin-top: 8px;">
+                        <li>Each scheduled task is stored as an <strong>XML file</strong> containing full configuration — triggers, actions, conditions, and the account it runs under.</li>
+                        <li>The folder structure mirrors the Task Scheduler library tree — subfolders group tasks by category.</li>
+                        <li>Use <strong>$MFT analysis</strong> to check the <strong>created timestamp</strong> of XML files — a newly created task file during the attack window is a strong indicator.</li>
+                        <li>Deleted XML files may still be recoverable via the <strong>USN Journal</strong> or $MFT.</li>
+                    </ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach); margin-bottom: 6px;">Registry — TaskCache</div>
+                    <div class="hive-path">HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\</div>
+                    <div class="hive-path" style="margin-top: 6px;">HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\</div>
+                    <ul class="hive-desc" style="margin-top: 8px;">
+                        <li>The <strong>Tasks</strong> subkey stores task metadata indexed by GUID — including the task path, last run time, and trigger information.</li>
+                        <li>The <strong>Tree</strong> subkey mirrors the task folder structure and contains the task names.</li>
+                        <li>A task entry in the TaskCache without a corresponding XML file indicates the XML was <strong>deleted</strong> — the registry stub may still reveal the task's path and last execution.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ XML STRUCTURE ══════════════════════════════════════ -->
+    <div class="topic-section peach" id="xml-structure">
+        <h3 data-toggle="xml-structure-body" onclick="toggleSection('xml-structure-body')">
+            <i class="fas fa-code"></i> Key XML Elements
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="xml-structure-body">
+            <div class="hive-list">
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--blue);">&lt;Actions&gt;</div>
+                    <ul class="hive-desc">
+                        <li>Contains the <strong>command or script that executes</strong> — the most important element for forensic analysis.</li>
+                        <li>Look for <code>&lt;Exec&gt;</code> elements with <code>&lt;Command&gt;</code> and <code>&lt;Arguments&gt;</code> values pointing to suspicious executables or encoded payloads.</li>
+                    </ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--green);">&lt;Triggers&gt;</div>
+                    <ul class="hive-desc">
+                        <li>Defines <strong>when the task runs</strong> — at logon, on a schedule, at startup, on event, or on idle.</li>
+                        <li>A trigger set to <strong>fire at every logon</strong> or <strong>on a repeating interval</strong> is a common attacker pattern.</li>
+                    </ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--pink);">&lt;Principals&gt;</div>
+                    <ul class="hive-desc">
+                        <li>Specifies the <strong>user account</strong> the task runs under and whether it requires the user to be logged in.</li>
+                        <li>Tasks configured to run as <strong>SYSTEM</strong> or with <strong>highest privileges</strong> regardless of login status are high-priority flags.</li>
+                    </ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--yellow);">&lt;RegistrationInfo&gt;</div>
+                    <ul class="hive-desc">
+                        <li>Contains the <strong>task author, description, and registration date</strong>.</li>
+                        <li>Malicious tasks often have <strong>empty descriptions</strong>, generic author names, or dates that align with the attack window.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ WHAT TO LOOK FOR ══════════════════════════════════ -->
+    <div class="topic-section yellow" id="what-to-look-for">
+        <h3 data-toggle="what-to-look-for-body" onclick="toggleSection('what-to-look-for-body')">
+            <i class="fas fa-magnifying-glass"></i> What To Look For
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="what-to-look-for-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>Tasks with actions pointing to Temp, AppData, Downloads, or ProgramData</strong> — legitimate tasks rarely execute from these locations.</li>
+                        <li><strong>Tasks using LOLBins</strong> — e.g. <code>powershell.exe -enc ...</code>, <code>cmd.exe /c ...</code>, <code>wscript.exe</code>, <code>mshta.exe</code>, or <code>certutil.exe</code>.</li>
+                        <li><strong>Recently created task XML files</strong> — use $MFT to check the created timestamp against the attack window.</li>
+                        <li><strong>TaskCache entries without a corresponding XML file</strong> — the task was deleted but the registry stub remains.</li>
+                        <li><strong>Tasks in non-standard subfolders</strong> — legitimate Windows tasks are usually in <code>\Microsoft\Windows\</code>; tasks in the root or in custom folders are suspicious.</li>
+                        <li><strong>Tasks with no description or a generic name</strong> mimicking Windows system tasks.</li>
+                        <li><strong>Tasks set to run hidden</strong> with the highest privileges and regardless of user login status.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ TOOLS ══════════════════════════════════════════════ -->
+    <div class="topic-section mauve" id="tools">
+        <h3 data-toggle="tools-body" onclick="toggleSection('tools-body')">
+            <i class="fas fa-terminal"></i> Tools
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="tools-body">
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">1</span> Browse XML Files Directly</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Navigate to <code>C:\Windows\System32\Tasks\</code> in the mounted image and open suspicious XML files in a text editor.</li>
+                        <li>Focus on the <strong>&lt;Actions&gt;</strong> and <strong>&lt;Triggers&gt;</strong> elements — these tell you what runs and when.</li>
+                        <li>Cross-reference the task's XML file <strong>creation timestamp</strong> (from $MFT) with the attack timeline.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">2</span> Registry Explorer</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Load the <strong>SOFTWARE</strong> hive and navigate to the <strong>TaskCache</strong> keys.</li>
+                        <li>Use the <strong>Bookmarks</strong> tab — Registry Explorer has pre-built bookmarks for Scheduled Tasks.</li>
+                        <li>Check the <strong>last write time</strong> of TaskCache entries to identify recently created or modified tasks.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">3</span> RegRipper</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Use the <strong>taskcache</strong> plugin — this specifically targets the <code>TaskCache\Tasks</code> and <code>TaskCache\Tree</code> subkeys in the SOFTWARE hive, outputting task names, GUIDs, paths, and last run times.</li>
+                        <li>The <strong>tasks</strong> plugin may also be available but targets a different or older task storage format — <strong>taskcache</strong> is the correct plugin for modern Windows systems (Vista and later).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="description"><strong>Parse TaskCache (recommended):</strong></div>
+                    <div class="command-box">
+                        <span class="command">rip.exe -r C:\Cases\Analysis\Registry\SOFTWARE -p taskcache > C:\Cases\Analysis\Registry\RR_Output\taskcache.txt && type C:\Cases\Analysis\Registry\RR_Output\taskcache.txt</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

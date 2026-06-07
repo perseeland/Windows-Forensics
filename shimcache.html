@@ -1,0 +1,170 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — ShimCache</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#what-can-be-identified">What Can Be Identified</a></li>
+        <li><a href="#tools">Tools</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">ShimCache</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="hive-card">
+                <div class="hive-path">HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache\AppCompatCache</div>
+            </div>
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>ShimCache</strong> (also known as <strong>AppCompatCache</strong>) is a Windows mechanism used to track application compatibility — it records executable files that Windows has encountered on the system.</li>
+                        <li>Stored in the <strong>SYSTEM hive</strong> and persists across reboots.</li>
+                        <li>Entries are written to the registry <strong>on system shutdown</strong> — not in real time. If the system was powered off abruptly or crashed, the most recent entries may not have been committed.</li>
+                        <li>ShimCache covers the <strong>entire system</strong> — it is not per-user like BAM.</li>
+                        <li>The cache holds a limited number of entries (typically up to <strong>1024 on Windows 10</strong>) — older entries are evicted as new ones are added.</li>
+                    </ul>
+                    <div class="note-box warn"><i class="fas fa-triangle-exclamation"></i><span>On <strong>Windows 10</strong>, the presence of a ShimCache entry does <strong>not necessarily mean the file was executed</strong> — it may simply have been present on disk and accessed by the OS. On Windows 7 and earlier, an execution flag was recorded. Always corroborate with other execution artefacts.</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ WHAT CAN BE IDENTIFIED ════════════════════════════ -->
+    <div class="topic-section green" id="what-can-be-identified">
+        <h3 data-toggle="what-can-be-identified-body" onclick="toggleSection('what-can-be-identified-body')">
+            <i class="fas fa-magnifying-glass"></i> What Can Be Identified
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="what-can-be-identified-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>Full path</strong> of executables that were present or run on the system.</li>
+                        <li><strong>Last modified time</strong> of the executable file — useful for detecting recently dropped or modified binaries.</li>
+                        <li>Evidence of tools that have since been <strong>deleted from disk</strong> — the ShimCache entry remains even after the file is removed.</li>
+                        <li>Presence of executables in <strong>unusual locations</strong> (Temp, Downloads, AppData) that may indicate malware or attacker tools.</li>
+                        <li>Entries are ordered — the <strong>most recently encountered</strong> executables appear first, helping narrow down activity to a timeframe.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ TOOLS ══════════════════════════════════════════════ -->
+    <div class="topic-section peach" id="tools">
+        <h3 data-toggle="tools-body" onclick="toggleSection('tools-body')">
+            <i class="fas fa-terminal"></i> Tools
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="tools-body">
+            <div class="step-block">
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>AppCompatCacheParser</strong> by Eric Zimmermann is the recommended tool — exports results as a CSV for analysis in <strong>Timeline Explorer</strong>.</li>
+                        <li>Each entry includes the <strong>file path</strong>, <strong>last modified time</strong>, and <strong>cache entry position</strong> (lower = more recently encountered).</li>
+                        <li>The CSV output includes an <strong>Executed</strong> column — on <strong>Windows 7 and earlier</strong> this will show <code>Yes</code> or <code>No</code> confirming whether the file was run. On <strong>Windows 10</strong> this column will show <code>Unknown</code> for most entries as the execution flag was removed from the cache format — presence alone cannot confirm execution.</li>
+                        <li>Do <strong>not</strong> sort by the <strong>last modified timestamp</strong> when trying to determine execution order — the modified time reflects when the file was last changed on disk, not when it was run.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> AppCompatCacheParser</div>
+                <div class="command-container">
+                    <div class="description"><strong>Parse ShimCache and export to CSV:</strong></div>
+                    <div class="command-box">
+                        <span class="command">AppCompatCacheParser.exe -f "C:\Cases\Analysis\Registry\SYSTEM" --csv "C:\Cases\Analysis\execution" --csvf ShimCache.csv</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+            <div class="rip-block" style="margin-top: 8px;">
+                <div class="rip-label"><i class="fas fa-search"></i> Registry Explorer</div>
+                <div class="step-notes" style="margin-top: 6px;">
+                    <ul>
+                        <li>Load the <strong>SYSTEM</strong> hive into Registry Explorer.</li>
+                        <li>Navigate to the <strong>Bookmarks</strong> tab and locate the <strong>AppCompatCache</strong> bookmark.</li>
+                        <li>The entries will be displayed in order — use the <strong>cache entry position</strong> to determine sequence, not the timestamps.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

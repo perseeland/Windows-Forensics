@@ -1,0 +1,137 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — Evidence of Execution</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#bam">BAM</a></li>
+        <!-- ADD NEW SECTION LINKS HERE -->
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">Evidence of Execution</h1>
+
+    <!-- ══ BAM ═══════════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="bam">
+        <h3 data-toggle="bam-body" onclick="toggleSection('bam-body')">
+            <i class="fas fa-terminal"></i> BAM — Background Activity Moderator
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="bam-body">
+
+            <div class="hive-card">
+                <div class="hive-path">HKLM\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings\{SID}</div>
+            </div>
+
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-label"><span class="step-num">1</span> Overview</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>The <strong>Background Activity Moderator (BAM)</strong> is a Windows service introduced in <strong>Windows 10 version 1709</strong> that controls and monitors background application activity.</li>
+                        <li>From a forensic perspective, BAM records the <strong>full path and last execution time</strong> of every executable run on the system.</li>
+                        <li>Each user has their own subkey identified by their <strong>SID</strong> — analysis must be performed per user.</li>
+                        <li>Entries are stored in the <strong>SYSTEM hive</strong> — they survive user profile deletion and are not tied to the user's NTUSER.DAT.</li>
+                        <li>BAM is one of the most reliable sources for proving <strong>program execution</strong> as it records the last run time directly in the registry.</li>
+                    </ul>
+                    <div class="note-box info"><i class="fas fa-circle-info"></i><span>BAM only records the <strong>last execution time</strong> — not the number of times a program was run. For execution counts use <strong>UserAssist</strong> or <strong>Shimcache</strong>.</span></div>
+                </div>
+            </div>
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">2</span> What Can Be Identified</div>
+                <div class="step-notes">
+                    <ul>
+                        <li><strong>Full path</strong> of every executable that was run — including tools dropped in Temp, Downloads, or unusual locations.</li>
+                        <li><strong>Last execution timestamp</strong> for each program — useful for placing a tool within the attack timeframe.</li>
+                        <li><strong>Per-user execution history</strong> — identify which user account ran which program.</li>
+                        <li>Evidence of <strong>living-off-the-land binaries (LOLBins)</strong> such as <code>powershell.exe</code>, <code>cmd.exe</code>, <code>wscript.exe</code>, or <code>certutil.exe</code> being used.</li>
+                        <li>Tools or malware <strong>subsequently deleted</strong> — the BAM entry remains even after the file is removed from disk.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="rip-block">
+                <div class="rip-label"><i class="fas fa-terminal"></i> RegRipper</div>
+                <div class="command-container">
+                    <div class="command-box">
+                        <span class="command">rip.exe -r C:\Cases\Analysis\Registry\SYSTEM -p bam > C:\Cases\Analysis\Registry\RR_Output\bam.txt && type C:\Cases\Analysis\Registry\RR_Output\bam.txt</span>
+                        <button onclick="copyCmd(this)">📋</button>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /bam-body -->
+    </div>
+
+    <!-- ADD NEW SECTIONS BELOW THIS COMMENT -->
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>

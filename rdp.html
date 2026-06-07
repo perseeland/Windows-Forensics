@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Forensics — RDP</title>
+    <link rel="stylesheet" href="forensics.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* ── RDP flowchart (scoped to this page) ── */
+        .flow-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 4px 0 18px; font-size: 0.78rem; }
+        .flow-legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); }
+        .flow-legend i.dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+        .flow-scenario { margin-bottom: 22px; }
+        .flow-title {
+            font-weight: 600; font-size: 0.92rem; margin-bottom: 10px;
+            color: var(--text); display: flex; align-items: center; gap: 8px;
+        }
+        .flow-title .chip {
+            font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px;
+            background: var(--bg-hover); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .flow-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+
+        .flow-stage {
+            flex: 1 1 0; min-width: 170px;
+            background: var(--bg-surface); border: 1px solid var(--border);
+            border-top: 3px solid var(--border-strong);
+            border-radius: var(--radius-sm); padding: 10px 12px;
+        }
+        .flow-stage.rcm  { border-top-color: var(--blue); }
+        .flow-stage.sec  { border-top-color: var(--peach); }
+        .flow-stage.lsm  { border-top-color: var(--green); }
+        .flow-stage.sys  { border-top-color: var(--pink); }
+        .flow-stage.fail { border-top-color: var(--red); }
+
+        .flow-eid { font-weight: 700; font-size: 0.9rem; color: var(--text); }
+        .flow-eid small { font-weight: 500; color: var(--text-muted); font-size: 0.72rem; }
+        .flow-msg { font-size: 0.78rem; color: var(--text-dim); margin: 5px 0 6px; line-height: 1.4; font-style: italic; }
+        .flow-log { font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; color: var(--text-muted); word-break: break-all; }
+
+        .flow-arrow { align-self: center; color: var(--border-strong); font-size: 1.1rem; flex: 0 0 auto; }
+        @media (max-width: 900px) { .flow-arrow { transform: rotate(90deg); } }
+    </style>
+    <script>
+        function toggleSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.querySelector(`[data-toggle="${id}"] .toggle-icon`);
+            body.classList.toggle('collapsed');
+            icon.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        }
+
+        function copyCmd(btn) {
+            const span = btn.closest('.command-box').querySelector('.command');
+            navigator.clipboard.writeText(span.textContent).then(() => {
+                btn.textContent = '✅';
+                setTimeout(() => btn.textContent = '📋', 1500);
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<div class="side-nav">
+    <h2>Win Forensics</h2>
+    <ul>
+        <li class="nav-group ng-std">Investigation</li>
+        <li><a href="checklist.html"><i class="fas fa-clipboard-check"></i> Checklist</a></li>
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Collection</li>
+        <li><a href="index.html">Data Collection</a></li>
+        <li><a href="disk-analysis-intro.html">Disk Analysis Intro</a></li>
+        <li class="nav-group ng-std">Registry</li>
+        <li><a href="registry-analysis.html">Registry Overview</a></li>
+        <li><a href="system-info.html">System Information</a></li>
+        <li><a href="users.html">Users</a></li>
+        <li class="nav-group ng-std">User Behaviour</li>
+        <li><a href="user-behaviour.html" class="nav-sub">Overview</a></li>
+        <li><a href="userassist.html" class="nav-sub">UserAssist</a></li>
+        <li><a href="recentdocs.html" class="nav-sub">RecentDocs</a></li>
+        <li><a href="shellbags.html" class="nav-sub">ShellBags</a></li>
+        <li class="nav-group ng-std">Disk Analysis</li>
+        <li><a href="disk-analysis.html">$MFT</a></li>
+        <li><a href="usn-journal.html">USN Journal</a></li>
+        <li class="nav-group ng-std">Evidence of Execution</li>
+        <li><a href="evidence-of-execution.html" class="nav-sub">BAM</a></li>
+        <li><a href="shimcache.html" class="nav-sub">ShimCache</a></li>
+        <li><a href="amcache.html" class="nav-sub">Amcache</a></li>
+        <li><a href="prefetch.html" class="nav-sub">Prefetch</a></li>
+        <li class="nav-group ng-std">Persistence</li>
+        <li><a href="run-keys.html" class="nav-sub">Run Keys</a></li>
+        <li><a href="startup-folders.html" class="nav-sub">Startup Folders</a></li>
+        <li><a href="services.html" class="nav-sub">Windows Services</a></li>
+        <li><a href="scheduled-tasks.html" class="nav-sub">Scheduled Tasks</a></li>
+        <li class="nav-group ng-std">Event Log Analysis</li>
+        <li><a href="defender-events.html" class="nav-sub">Windows Defender</a></li>
+        <li><a href="service-installs.html" class="nav-sub">Service Installs</a></li>
+        <li><a href="auth-events.html" class="nav-sub">Authentication</a></li>
+        <li><a href="powershell.html" class="nav-sub">PowerShell</a></li>
+        <li><a href="sysmon.html" class="nav-sub">Sysmon</a></li>
+        <li><a href="rdp.html" class="nav-sub">RDP</a></li>
+        <!-- ADD NEW PAGE LINKS HERE -->
+        <li class="nav-divider"></li>
+        <li class="nav-group ng-std">Sections</li>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#flow">Activity Flow</a></li>
+        <li><a href="#event-ids">Key Event IDs</a></li>
+        <li><a href="#tools">Tools</a></li>
+    </ul>
+</div>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="main-content">
+
+    <h1 class="page-title">RDP — Remote Desktop Activity</h1>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+    <div class="topic-section cyan" id="overview">
+        <h3 data-toggle="overview-body" onclick="toggleSection('overview-body')">
+            <i class="fas fa-circle-info"></i> Overview
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="overview-body">
+            <div class="hive-list">
+                <div class="hive-card">
+                    <div class="hive-path">...TerminalServices-RemoteConnectionManager%4Operational.evtx</div>
+                    <ul class="hive-desc"><li><strong>RCM</strong> — the <strong>inbound connection</strong> side. Event <strong>1149</strong> records the source user and <strong>source IP</strong>.</li></ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path">...TerminalServices-LocalSessionManager%4Operational.evtx</div>
+                    <ul class="hive-desc"><li><strong>LSM</strong> — the <strong>session</strong> side. Logon, shell start, disconnect, reconnect, and logoff (21–25, 39, 40).</li></ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path">C:\Windows\System32\winevt\Logs\Security.evtx</div>
+                    <ul class="hive-desc"><li>Authoritative logon/logoff — <strong>4624/4625 Type 10</strong> (Type 7 on reconnect), plus 4634/4647/4778/4779.</li></ul>
+                </div>
+                <div class="hive-card">
+                    <div class="hive-path">C:\Windows\System32\winevt\Logs\System.evtx</div>
+                    <ul class="hive-desc"><li>Event <strong>9009</strong> (Desktop Window Manager exited) confirms a session was fully <strong>closed</strong>, not just disconnected.</li></ul>
+                </div>
+            </div>
+            <div class="step-block" style="margin-top: 12px;">
+                <div class="step-notes">
+                    <ul>
+                        <li>RDP activity is spread across <strong>four logs</strong> — no single event tells the whole story, so the value is in <strong>correlating them on a timeline</strong>.</li>
+                        <li><strong>Logon Type 10</strong> = RemoteInteractive (RDP). On a <strong>reconnect</strong> to an existing session it appears as <strong>Type 7</strong> (unlock) instead.</li>
+                        <li>Event <strong>1149</strong> is the earliest indicator of an inbound RDP attempt and carries the <strong>source IP</strong> — but it fires on the network connection, so it is <strong>not</strong> proof the credentials were valid. Pair it with a 4624 (success) or 4625 (failure) to know the outcome.</li>
+                        <li><strong>Disconnect ≠ logoff.</strong> A disconnect (24/4779) leaves the session running in the background; only a logoff (23/4634/4647) ends it. Attackers often disconnect rather than log off to keep their session alive.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ ACTIVITY FLOW ══════════════════════════════════════ -->
+    <div class="topic-section green" id="flow">
+        <h3 data-toggle="flow-body" onclick="toggleSection('flow-body')">
+            <i class="fas fa-diagram-project"></i> Activity Flow
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="flow-body">
+
+            <div class="flow-legend">
+                <span><i class="dot" style="background: var(--blue);"></i> RemoteConnectionManager (RCM)</span>
+                <span><i class="dot" style="background: var(--green);"></i> LocalSessionManager (LSM)</span>
+                <span><i class="dot" style="background: var(--peach);"></i> Security</span>
+                <span><i class="dot" style="background: var(--pink);"></i> System</span>
+                <span><i class="dot" style="background: var(--red);"></i> Failure</span>
+            </div>
+
+            <!-- Successful Logon -->
+            <div class="flow-scenario">
+                <div class="flow-title"><i class="fas fa-right-to-bracket" style="color: var(--green);"></i> Successful Logon <span class="chip">Network → Auth → Logon</span></div>
+                <div class="flow-row">
+                    <div class="flow-stage rcm">
+                        <div class="flow-eid">1149 <small>· RCM</small></div>
+                        <div class="flow-msg">“User authentication succeeded”</div>
+                        <div class="flow-log">Network connection · source IP</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+                    <div class="flow-stage sec">
+                        <div class="flow-eid">4624 <small>· Type 10</small></div>
+                        <div class="flow-msg">“An account was successfully logged on”</div>
+                        <div class="flow-log">Security · authentication</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+                    <div class="flow-stage lsm">
+                        <div class="flow-eid">21 <small>· LSM</small></div>
+                        <div class="flow-msg">“Session logon succeeded”</div>
+                        <div class="flow-log">Local session manager</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+                    <div class="flow-stage lsm">
+                        <div class="flow-eid">22 <small>· LSM</small></div>
+                        <div class="flow-msg">“Shell start notification received”</div>
+                        <div class="flow-log">Desktop loaded</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unsuccessful Logon -->
+            <div class="flow-scenario">
+                <div class="flow-title"><i class="fas fa-ban" style="color: var(--red);"></i> Unsuccessful Logon <span class="chip">Network → Auth</span></div>
+                <div class="flow-row">
+                    <div class="flow-stage rcm">
+                        <div class="flow-eid">1149 <small>· RCM</small></div>
+                        <div class="flow-msg">“User authentication succeeded”</div>
+                        <div class="flow-log">Network connection · source IP</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-arrow-right"></i></div>
+                    <div class="flow-stage fail">
+                        <div class="flow-eid">4625 <small>· Type 10</small></div>
+                        <div class="flow-msg">“An account failed to log on”</div>
+                        <div class="flow-log">Security · failed auth</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disconnect (window close) -->
+            <div class="flow-scenario">
+                <div class="flow-title"><i class="fas fa-window-restore" style="color: var(--peach);"></i> Session Disconnect <span class="chip">Window Close</span></div>
+                <div class="flow-row">
+                    <div class="flow-stage lsm">
+                        <div class="flow-eid">24 <small>· LSM</small></div>
+                        <div class="flow-msg">“Session has been disconnected”</div>
+                        <div class="flow-log">Local session manager</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage lsm">
+                        <div class="flow-eid">40 <small>· LSM</small></div>
+                        <div class="flow-msg">“Session &lt;X&gt; disconnected, reason code &lt;Z&gt;”</div>
+                        <div class="flow-log">Reason code</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage sec">
+                        <div class="flow-eid">4779 <small>· Security</small></div>
+                        <div class="flow-msg">“A session was disconnected from a Window Station”</div>
+                        <div class="flow-log">Security</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage sec">
+                        <div class="flow-eid">4634 <small>· Type 10</small></div>
+                        <div class="flow-msg">“An account was logged off”</div>
+                        <div class="flow-log">Security</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disconnect (purposeful) -->
+            <div class="flow-scenario">
+                <div class="flow-title"><i class="fas fa-arrow-right-from-bracket" style="color: var(--peach);"></i> Session Disconnect <span class="chip">Start &gt; Disconnect</span></div>
+                <div class="flow-row">
+                    <div class="flow-stage lsm">
+                        <div class="flow-eid">24 <small>· LSM</small></div>
+                        <div class="flow-msg">“Session has been disconnected”</div>
+                        <div class="flow-log">Local session manager</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage lsm">
+                        <div class="flow-eid">39 <small>· LSM</small></div>
+                        <div class="flow-msg">“Session &lt;X&gt; has been disconnected by session &lt;Y&gt;”</div>
+                        <div class="flow-log">Purposeful disconnect</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage lsm">
+                        <div class="flow-eid">40 <small>· LSM</small></div>
+                        <div class="flow-msg">“Session &lt;X&gt; disconnected, reason code &lt;Z&gt;”</div>
+                        <div class="flow-log">Reason code</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage sec">
+                        <div class="flow-eid">4779 <small>· Security</small></div>
+                        <div class="flow-msg">“A session was disconnected from a Window Station”</div>
+                        <div class="flow-log">Security</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage sec">
+                        <div class="flow-eid">4634 <small>· Type 10</small></div>
+                        <div class="flow-msg">“An account was logged off”</div>
+                        <div class="flow-log">Security</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reconnect -->
+            <div class="flow-scenario">
+                <div class="flow-title"><i class="fas fa-rotate-right" style="color: var(--blue);"></i> Session Reconnect <span class="chip">Type 7</span></div>
+                <div class="flow-row">
+                    <div class="flow-stage lsm">
+                        <div class="flow-eid">25 <small>· LSM</small></div>
+                        <div class="flow-msg">“Session reconnection succeeded”</div>
+                        <div class="flow-log">Local session manager</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage sec">
+                        <div class="flow-eid">4624 <small>· Type 7</small></div>
+                        <div class="flow-msg">“An account was successfully logged on”</div>
+                        <div class="flow-log">Security</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage rcm">
+                        <div class="flow-eid">1149 <small>· RCM</small></div>
+                        <div class="flow-msg">“User authentication succeeded”</div>
+                        <div class="flow-log">Network connection</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage lsm">
+                        <div class="flow-eid">40* <small>· LSM</small></div>
+                        <div class="flow-msg">“Session &lt;X&gt; disconnected, reason code &lt;Z&gt;”</div>
+                        <div class="flow-log">*also correlates to reconnects</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage sec">
+                        <div class="flow-eid">4778 <small>· Security</small></div>
+                        <div class="flow-msg">“A session was reconnected to a Window Station”</div>
+                        <div class="flow-log">Security · source IP</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logoff -->
+            <div class="flow-scenario">
+                <div class="flow-title"><i class="fas fa-power-off" style="color: var(--pink);"></i> Session Logoff <span class="chip">Full close</span></div>
+                <div class="flow-row">
+                    <div class="flow-stage lsm">
+                        <div class="flow-eid">23 <small>· LSM</small></div>
+                        <div class="flow-msg">“Session logoff succeeded”</div>
+                        <div class="flow-log">Local session manager</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage sec">
+                        <div class="flow-eid">4634 <small>· Type 10</small></div>
+                        <div class="flow-msg">“An account was logged off”</div>
+                        <div class="flow-log">Security</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage sec">
+                        <div class="flow-eid">4647 <small>· Security</small></div>
+                        <div class="flow-msg">“User initiated logoff”</div>
+                        <div class="flow-log">Security</div>
+                    </div>
+                    <div class="flow-arrow"><i class="fas fa-plus"></i></div>
+                    <div class="flow-stage sys">
+                        <div class="flow-eid">9009 <small>· System</small></div>
+                        <div class="flow-msg">“The Desktop Window Manager has exited with code (&lt;X&gt;)”</div>
+                        <div class="flow-log">System · session fully closed</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="note-box info"><i class="fas fa-circle-info"></i><span>Adapted from the 13cubed / ponderthebits RDP event-log reference. Source: <em>ponderthebits.com/2018/02/windows-rdp-related-event-logs-identification-tracking-and-investigation</em>.</span></div>
+
+        </div>
+    </div>
+
+    <!-- ══ KEY EVENT IDs ══════════════════════════════════════ -->
+    <div class="topic-section peach" id="event-ids">
+        <h3 data-toggle="event-ids-body" onclick="toggleSection('event-ids-body')">
+            <i class="fas fa-list-ol"></i> Key Event IDs
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="event-ids-body">
+            <div class="hive-list">
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--blue);">1149 — User Authentication Succeeded <span style="color: var(--text-muted); font-weight: normal;">(RCM)</span></div>
+                    <ul class="hive-desc">
+                        <li>Earliest sign of an <strong>inbound RDP connection</strong> — records the <strong>source username, domain, and source IP address</strong>.</li>
+                        <li>Despite the name, it fires on the <strong>network connection</strong> and does <strong>not</strong> confirm valid credentials — always pair with a 4624 / 4625 for the outcome.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach);">4624 / 4625 — Logon Success / Failure <span style="color: var(--text-muted); font-weight: normal;">(Security)</span></div>
+                    <ul class="hive-desc">
+                        <li><strong>4624 Type 10</strong> = successful RemoteInteractive (RDP) logon; <strong>Type 7</strong> on reconnect to an existing session.</li>
+                        <li><strong>4625 Type 10</strong> = failed RDP logon — repeated failures point to <strong>RDP brute-forcing</strong>.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--green);">21 / 22 / 25 — Logon / Shell / Reconnect <span style="color: var(--text-muted); font-weight: normal;">(LSM)</span></div>
+                    <ul class="hive-desc">
+                        <li><strong>21</strong> — session logon succeeded (records the source network address).</li>
+                        <li><strong>22</strong> — shell start notification received (the desktop finished loading — confirms an interactive session).</li>
+                        <li><strong>25</strong> — session reconnection succeeded.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--green);">23 / 24 / 39 / 40 — Logoff / Disconnect <span style="color: var(--text-muted); font-weight: normal;">(LSM)</span></div>
+                    <ul class="hive-desc">
+                        <li><strong>23</strong> — session logoff succeeded. <strong>24</strong> — session disconnected (session left running).</li>
+                        <li><strong>39</strong> — session X disconnected <strong>by session Y</strong> — indicates a purposeful disconnect (or one user kicking another).</li>
+                        <li><strong>40</strong> — session disconnected with a <strong>reason code</strong>; also correlates to reconnections.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--peach);">4634 / 4647 / 4778 / 4779 — Session State <span style="color: var(--text-muted); font-weight: normal;">(Security)</span></div>
+                    <ul class="hive-desc">
+                        <li><strong>4634</strong> — an account was logged off. <strong>4647</strong> — user-initiated logoff.</li>
+                        <li><strong>4778</strong> — session <strong>reconnected</strong> to a window station (records source name + IP). <strong>4779</strong> — session <strong>disconnected</strong> from a window station.</li>
+                    </ul>
+                </div>
+
+                <div class="hive-card">
+                    <div class="hive-path" style="color: var(--pink);">9009 — Desktop Window Manager Exited <span style="color: var(--text-muted); font-weight: normal;">(System)</span></div>
+                    <ul class="hive-desc">
+                        <li>Logged when the DWM exits — confirms a session was <strong>fully closed (logged off)</strong> rather than merely disconnected.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ TOOLS ══════════════════════════════════════════════ -->
+    <div class="topic-section yellow" id="tools">
+        <h3 data-toggle="tools-body" onclick="toggleSection('tools-body')">
+            <i class="fas fa-terminal"></i> Tools
+            <span class="toggle-icon">▼</span>
+        </h3>
+        <div class="topic-body" id="tools-body">
+
+            <div class="step-block">
+                <div class="step-label"><span class="step-num">1</span> Windows Event Log Explorer</div>
+                <div class="step-notes">
+                    <ul>
+                        <li>Start in <strong>RemoteConnectionManager%4Operational.evtx</strong> and filter <strong>1149</strong> to list inbound connections and their <strong>source IPs</strong>.</li>
+                        <li>Confirm the outcome in <strong>Security.evtx</strong> — <strong>4624 Type 10</strong> (success) or <strong>4625 Type 10</strong> (failure) at the matching time.</li>
+                        <li>Build the session story in <strong>LocalSessionManager%4Operational.evtx</strong> — 21/22 (logon), 24/39/40 (disconnect), 25 (reconnect), 23 (logoff).</li>
+                        <li>Sort each log by <strong>Date/Time</strong> and merge the events into one timeline keyed on the source IP and session.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div><!-- /main-content -->
+<script src="forensics.js"></script>
+</body>
+</html>
